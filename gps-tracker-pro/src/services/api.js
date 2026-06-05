@@ -1,0 +1,68 @@
+/**
+ * Traccar REST client — session cookie auth (credentials: include)
+ */
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+
+export function apiUrl(path) {
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  return `${API_BASE}${normalized}`;
+}
+
+export class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+export async function fetchApi(path, options = {}) {
+  const { headers: customHeaders, body, ...rest } = options;
+  const headers = { ...customHeaders };
+
+  if (
+    body
+    && !(body instanceof URLSearchParams)
+    && !(body instanceof FormData)
+    && !headers['Content-Type']
+  ) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const response = await fetch(apiUrl(path), {
+    credentials: 'include',
+    ...rest,
+    headers,
+    body: body && !(body instanceof URLSearchParams) && !(body instanceof FormData)
+      ? JSON.stringify(body)
+      : body,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(text || response.statusText, response.status);
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  const contentType = response.headers.get('content-type');
+  if (contentType?.includes('application/json')) {
+    return response.json();
+  }
+
+  return response.text();
+}
+
+export function getWebSocketUrl() {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  if (API_BASE.startsWith('http')) {
+    const url = new URL(API_BASE);
+    return `${protocol}//${url.host}/api/socket`;
+  }
+  return `${protocol}//${window.location.host}/api/socket`;
+}
+
+export { API_BASE };

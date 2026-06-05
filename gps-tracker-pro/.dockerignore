@@ -1,0 +1,45 @@
+# Dependencies & build output
+node_modules
+dist
+coverage
+.vite
+
+# Git
+.git
+.gitignore
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# IDE & editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Logs & caches
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+
+# Documentation (not needed in image)
+*.md
+
+# Docker metadata (not needed inside build context)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Tests
+**/__tests__
+**/*.test.*
+**/*.spec.*

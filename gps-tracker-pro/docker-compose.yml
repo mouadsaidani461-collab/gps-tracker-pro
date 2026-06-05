@@ -1,0 +1,22 @@
+services:
+  capture-tracking-gps:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_APP_NAME: ${VITE_APP_NAME:-Capture Tracking GPS}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_MAP_TILE_URL: ${VITE_MAP_TILE_URL:-https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png}
+    image: capture-tracking-gps:latest
+    container_name: capture-tracking-gps
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
