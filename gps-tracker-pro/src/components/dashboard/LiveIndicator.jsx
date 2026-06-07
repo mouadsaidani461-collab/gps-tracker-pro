@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { SIMULATION } from '../../utils/constants';
-import { formatRelativeTime, formatNumber } from '../../utils/formatters';
+import { formatRelativeTime, formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -54,12 +54,28 @@ export default function LiveIndicator({
 
       <span className="text-slate-500">·</span>
 
-      <span className="text-slate-400 tabular-nums">
-        {lastUpdate
-          ? secondsAgo < 60
-            ? `منذ ${formatNumber(secondsAgo, { maximumFractionDigits: 0 })} ث`
-            : formatRelativeTime(lastUpdate)
-          : `كل ${formatNumber(interval / 1000, { maximumFractionDigits: 0 })} ث`}
+      <span className={cn('text-slate-400', NUMERIC_DISPLAY_CLASS)} dir="ltr">
+        {lastUpdate ? (
+          secondsAgo < 60 ? (
+            <>
+              {'منذ '}
+              <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+                {formatNumber(secondsAgo, { maximumFractionDigits: 0 })}
+              </span>
+              {' ث'}
+            </>
+          ) : (
+            formatRelativeTime(lastUpdate)
+          )
+        ) : (
+          <>
+            {'كل '}
+            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+              {formatNumber(interval / 1000, { maximumFractionDigits: 0 })}
+            </span>
+            {' ث'}
+          </>
+        )}
       </span>
     </div>
   );

@@ -1,14 +1,19 @@
 import { fetchApi } from './api';
 
 export const sessionApi = {
-  get: () => fetchApi('/session'),
+  get: () => fetchApi('/session').catch((err) => {
+    if (err?.status === 404) return null;
+    throw err;
+  }),
   login: (email, password, code) => {
-    let query = `email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
-    if (code) query += `&code=${encodeURIComponent(code)}`;
+    const body = new URLSearchParams();
+    body.set('email', email.trim());
+    body.set('password', password);
+    if (code?.trim()) body.set('code', code.trim());
     return fetchApi('/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(query),
+      body,
     });
   },
   logout: () => fetchApi('/session', { method: 'DELETE' }),

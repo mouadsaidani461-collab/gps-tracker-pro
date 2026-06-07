@@ -58,10 +58,36 @@ npm run preview
 ## Docker
 
 ```bash
-docker compose up --build
+cd gps-tracker-pro
+docker compose --env-file .env.production up --build -d
 ```
 
-Set `VITE_API_BASE_URL` at build time to your Traccar URL for production.
+- **App:** http://localhost:3001 (or `FRONTEND_PORT` in `.env.production`)
+- **Traccar admin:** http://localhost:8082
+- API + WebSocket proxied via nginx (`/api` → Traccar) — same-origin cookies, no CORS needed.
+
+### First-time Traccar user (required)
+
+Docker Traccar starts with an **empty database** — there is no default `admin/admin`.
+Create the first admin once:
+
+```bash
+TRACCAR_URL=http://localhost:8082 \
+ADMIN_EMAIL=mouadsaidani461@gmail.com \
+ADMIN_PASSWORD=REDACTED \
+./scripts/setup-traccar-admin.sh
+```
+
+Then login at http://localhost:3001/login with the same email/password.
+
+**Verify proxy:**
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3001/api/server   # 200
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:3001/api/session \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'email=YOUR_EMAIL&password=YOUR_PASSWORD'                                 # 200
+```
 
 ## Project Structure
 

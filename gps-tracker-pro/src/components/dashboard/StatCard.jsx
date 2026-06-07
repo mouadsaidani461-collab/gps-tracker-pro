@@ -66,7 +66,14 @@ export default function StatCard({
             )}
           >
             <TrendIcon className="w-3.5 h-3.5" />
-            <span>{trend.value}</span>
+            {trend.numeric != null ? (
+              <>
+                <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{trend.numeric}</span>
+                {trend.suffix ? ` ${trend.suffix}` : null}
+              </>
+            ) : (
+              <span>{trend.text ?? trend.value}</span>
+            )}
           </div>
         )}
       </div>

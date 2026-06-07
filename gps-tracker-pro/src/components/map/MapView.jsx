@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import { MAP } from '../../utils/constants';
+import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
 import { sameGeofenceId } from '../../utils/geofenceUtils';
 import VehicleMarker from './VehicleMarker';
 import RoutePolyline from './RoutePolyline';
@@ -46,7 +47,15 @@ export default function MapView({
       case 'create-circle':
         return '📍 انقر على الخريطة لإنشاء دائرة';
       case 'create-polygon':
-        return `📐 انقر لإضافة نقاط المضلع (${polygonDraft.length} نقطة — 3 على الأقل)`;
+        return (
+          <>
+            📐 انقر لإضافة نقاط المضلع (
+            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(polygonDraft.length)}</span>
+            {' '}نقطة —{' '}
+            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(3)}</span>
+            {' '}على الأقل)
+          </>
+        );
       case 'reposition':
         return '📍 انقر على موقع جديد لنقل مركز الدائرة';
       default:
@@ -75,7 +84,7 @@ export default function MapView({
         zoom={MAP.defaultZoom}
         scrollWheelZoom
         zoomControl={false}
-        className={cn('w-full h-full z-0', isDrawing && 'cursor-crosshair')}
+        className={cn('w-full h-full z-0 capture-leaflet-map', isDrawing && 'cursor-crosshair')}
         style={{ background: '#020617' }}
       >
         <TileLayer

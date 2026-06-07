@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { APP_NAME } from '../utils/constants';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
 
 const REMEMBER_KEY = 'capture_remember_email';
 
@@ -236,7 +237,10 @@ export default function Login() {
           </form>
 
           <div className="mt-6 pt-5 border-t border-slate-600/20 text-center">
-            <p className="text-[11px] text-slate-500 mb-1">استخدم حساب Traccar على المنفذ 8082</p>
+            <p className="text-[11px] text-slate-500 mb-1">
+              استخدم حساب Traccar على المنفذ{' '}
+              <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(8082, { maximumFractionDigits: 0 })}</span>
+            </p>
             <p className="text-xs text-capture-metallic">
               الجلسة عبر cookie — API: <span dir="ltr" className="text-capture-glow">/api</span>
             </p>

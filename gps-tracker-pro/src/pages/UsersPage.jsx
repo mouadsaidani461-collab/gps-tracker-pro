@@ -6,6 +6,7 @@ import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
+import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -175,15 +176,21 @@ export default function UsersPage() {
       <div className="grid grid-cols-3 gap-3">
         <div className="capture-card p-4">
           <p className="text-[10px] text-capture-metallic">الإجمالي</p>
-          <p className="text-2xl font-bold text-slate-100">{stats.total}</p>
+          <p className="text-2xl font-bold text-slate-100">
+            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(stats.total, { maximumFractionDigits: 0 })}</span>
+          </p>
         </div>
         <div className="capture-card p-4">
           <p className="text-[10px] text-capture-metallic">نشط</p>
-          <p className="text-2xl font-bold text-capture-glow">{stats.active}</p>
+          <p className="text-2xl font-bold text-capture-glow">
+            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(stats.active, { maximumFractionDigits: 0 })}</span>
+          </p>
         </div>
         <div className="capture-card p-4">
           <p className="text-[10px] text-capture-metallic">مديرون</p>
-          <p className="text-2xl font-bold text-slate-100">{stats.admins}</p>
+          <p className="text-2xl font-bold text-slate-100">
+            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(stats.admins, { maximumFractionDigits: 0 })}</span>
+          </p>
         </div>
       </div>
 

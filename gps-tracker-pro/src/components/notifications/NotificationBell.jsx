@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Bell, CheckCheck, Wifi, WifiOff } from 'lucide-react';
 import { useNotificationContext } from '../../context/NotificationContext';
 import NotificationItem, { isCriticalNotification } from './NotificationItem';
+import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -123,8 +124,14 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
 
         {/* Unread badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -start-0.5 z-20 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-capture-danger text-white text-[10px] font-bold shadow-[0_0_10px_rgba(244,63,94,0.7)]">
-            {unreadCount > 9 ? '9+' : unreadCount}
+          <span
+            className={cn(
+              'absolute -top-0.5 -start-0.5 z-20 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-capture-danger text-white text-[10px] font-bold shadow-[0_0_10px_rgba(244,63,94,0.7)]',
+              NUMERIC_DISPLAY_CLASS,
+            )}
+            dir="ltr"
+          >
+            {unreadCount > 9 ? `${formatNumber(9)}+` : formatNumber(unreadCount)}
           </span>
         )}
 
@@ -158,8 +165,13 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-slate-100 text-sm">الإشعارات</h3>
               {unreadCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-capture-danger/20 text-capture-danger border border-capture-danger/30">
-                  {unreadCount}
+                <span className={cn(
+                  'px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-capture-danger/20 text-capture-danger border border-capture-danger/30',
+                  NUMERIC_DISPLAY_CLASS,
+                )}
+                dir="ltr"
+                >
+                  {formatNumber(unreadCount, { maximumFractionDigits: 0 })}
                 </span>
               )}
             </div>
@@ -215,7 +227,10 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
           {notifications.length > 0 && (
             <div className="px-4 py-2 border-t border-slate-600/20 text-center">
               <p className="text-[10px] text-slate-500">
-                {notifications.length} إشعار · تحديثات WebSocket مباشرة
+                <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+                  {formatNumber(notifications.length, { maximumFractionDigits: 0 })}
+                </span>
+                {' '}إشعار · تحديثات WebSocket مباشرة
               </p>
             </div>
           )}

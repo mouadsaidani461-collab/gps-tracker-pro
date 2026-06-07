@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Map as MapIcon, Car, CircleDot } from 'lucide-react';
+import { formatCoordinates, NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
 import { useVehicles } from '../hooks/useVehicles';
 import { useGeofences } from '../hooks/useGeofences';
 import MapView from '../components/map/MapView';
@@ -48,6 +49,7 @@ export default function MapPage() {
     cancelDrawMode,
     undoPolygonPoint,
     finishPolygon,
+    addPresetGeofence,
     handleMapClick,
     linkedDeviceIds,
     linksLoading,
@@ -89,6 +91,20 @@ export default function MapPage() {
             lastUpdate={lastUpdate ? new Date(lastUpdate).toISOString() : null}
           />
         </div>
+        {selectedVehicle?.location && (
+          <div
+            className={cn(
+              'pointer-events-auto px-2.5 py-1.5 rounded-lg',
+              'bg-capture-card/90 backdrop-blur-md border border-slate-600/25',
+              'capture-map-coords',
+            )}
+            dir="ltr"
+          >
+            <span className={cn(NUMERIC_DISPLAY_CLASS, 'text-[10px] text-capture-metallic block')} dir="ltr">
+              {formatCoordinates(selectedVehicle.location.lat, selectedVehicle.location.lng)}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 min-h-0">

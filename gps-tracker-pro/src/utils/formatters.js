@@ -8,8 +8,8 @@ import { LOCALE, UNITS } from './constants';
 /** Always Western Arabic numerals (0-9) regardless of UI locale */
 export const NUMBER_LOCALE = 'en-US';
 
-/** Keep Western digits LTR inside RTL Arabic layout */
-export const NUMERIC_DISPLAY_CLASS = 'tabular-nums inline-block [direction:ltr] [unicode-bidi:isolate]';
+/** Keep Western digits LTR inside RTL Arabic layout (see index.css `.NUMERIC_DISPLAY_CLASS`) */
+export const NUMERIC_DISPLAY_CLASS = 'NUMERIC_DISPLAY_CLASS tabular-nums inline-block';
 
 const dateLocale = LOCALE.default;
 

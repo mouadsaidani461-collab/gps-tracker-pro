@@ -24,6 +24,7 @@ import {
   sameGeofenceId,
   traccarGeofencesToApp,
 } from '../utils/geofenceUtils';
+import { formatNumber } from '../utils/formatters';
 import { useAuth } from './AuthContext';
 import { useSocket } from './SocketContext';
 
@@ -36,7 +37,7 @@ function createLocalGeofence(partial, index) {
   if (partial.type === GEOFENCE_TYPES.POLYGON) {
     const coordinates = partial.coordinates ?? [];
     return normalizeGeofence({
-      name: partial.name ?? `مضلع ${index + 1}`,
+      name: partial.name ?? `مضلع ${formatNumber(index + 1, { maximumFractionDigits: 0 })}`,
       type: GEOFENCE_TYPES.POLYGON,
       coordinates,
       color,
@@ -44,7 +45,7 @@ function createLocalGeofence(partial, index) {
   }
 
   return normalizeGeofence({
-    name: partial.name ?? `منطقة ${index + 1}`,
+    name: partial.name ?? `منطقة ${formatNumber(index + 1, { maximumFractionDigits: 0 })}`,
     type: GEOFENCE_TYPES.CIRCLE,
     center: partial.center,
     radius: partial.radius ?? GEOFENCE_DEFAULTS.radius,
@@ -269,7 +270,7 @@ export function GeofenceProvider({ children }) {
     return addGeofence({
       type: GEOFENCE_TYPES.POLYGON,
       coordinates: [...polygonDraft],
-      name: `مضلع ${geofencesRef.current.length + 1}`,
+      name: `مضلع ${formatNumber(geofencesRef.current.length + 1, { maximumFractionDigits: 0 })}`,
     });
   }, [polygonDraft, addGeofence]);
 
@@ -278,7 +279,7 @@ export function GeofenceProvider({ children }) {
       await addGeofence({
         type: GEOFENCE_TYPES.CIRCLE,
         center: point,
-        name: `منطقة جديدة ${geofencesRef.current.length + 1}`,
+        name: `منطقة جديدة ${formatNumber(geofencesRef.current.length + 1, { maximumFractionDigits: 0 })}`,
       });
       return;
     }

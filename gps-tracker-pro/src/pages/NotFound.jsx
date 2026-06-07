@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Home, ArrowRight } from 'lucide-react';
 import Button from '../components/ui/Button';
+import { NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
 
 export default function NotFound() {
   const navigate = useNavigate();
@@ -13,7 +14,7 @@ export default function NotFound() {
       <div className="text-center max-w-md animate-fade-in">
         {/* Glow 404 */}
         <p className="text-[8rem] font-black leading-none capture-text-gradient select-none">
-          404
+          <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">404</span>
         </p>
 
         <h1 className="text-2xl font-bold text-slate-100 mt-2">الصفحة غير موجودة</h1>

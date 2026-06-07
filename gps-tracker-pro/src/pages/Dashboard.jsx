@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { Truck, Activity, AlertTriangle, Users } from 'lucide-react';
 import { MAP } from '../utils/constants';
 import { formatNumber } from '../utils/formatters';
-import { fleetApi } from '../services/traccarApi';
+import { userApi } from '../services/traccarApi';
 import StatCard from '../components/dashboard/StatCard';
 import VehicleList from '../components/dashboard/VehicleList';
 import LiveIndicator from '../components/dashboard/LiveIndicator';
@@ -44,7 +44,7 @@ export default function Dashboard() {
     if (!isAdmin()) return undefined;
     let cancelled = false;
 
-    fleetApi.users()
+    userApi.list()
       .then((users) => {
         if (!cancelled) setUserCount(Array.isArray(users) ? users.length : null);
       })
@@ -72,7 +72,11 @@ export default function Dashboard() {
       icon: Truck,
       title: 'إجمالي المركبات',
       value: formatNumber(stats.total, { maximumFractionDigits: 0 }),
-      trend: { direction: 'up', value: `${formatNumber(stats.moving, { maximumFractionDigits: 0 })} متحرك` },
+      trend: {
+        direction: 'up',
+        numeric: formatNumber(stats.moving, { maximumFractionDigits: 0 }),
+        suffix: 'متحرك',
+      },
       trendLabel: 'مركبات على الطريق',
       color: 'cyan',
     },
@@ -80,7 +84,7 @@ export default function Dashboard() {
       icon: Activity,
       title: 'نشط الآن',
       value: formatNumber(activeNow, { maximumFractionDigits: 0 }),
-      trend: { direction: 'neutral', value: isConnected ? 'مباشر' : 'غير متصل' },
+      trend: { direction: 'neutral', text: isConnected ? 'مباشر' : 'غير متصل' },
       trendLabel: 'حالة WebSocket',
       color: 'green',
     },
@@ -88,7 +92,10 @@ export default function Dashboard() {
       icon: AlertTriangle,
       title: 'التنبيهات',
       value: formatNumber(stats.activeAlerts, { maximumFractionDigits: 0 }),
-      trend: { direction: stats.alert > 0 ? 'down' : 'neutral', value: formatNumber(stats.alert, { maximumFractionDigits: 0 }) },
+      trend: {
+        direction: stats.alert > 0 ? 'down' : 'neutral',
+        numeric: formatNumber(stats.alert, { maximumFractionDigits: 0 }),
+      },
       trendLabel: 'مركبات بحالة تنبيه',
       color: 'red',
     },
@@ -98,7 +105,7 @@ export default function Dashboard() {
       value: userCount != null
         ? formatNumber(userCount, { maximumFractionDigits: 0 })
         : '—',
-      trend: { direction: 'neutral', value: '—' },
+      trend: { direction: 'neutral', text: '—' },
       trendLabel: 'حسابات Traccar',
       color: 'violet',
     },

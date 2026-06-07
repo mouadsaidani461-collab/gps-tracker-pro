@@ -4,7 +4,7 @@ import {
 import { StatusBadge } from '../ui/Badge';
 import {
   formatSpeed, formatFuel, formatDistance, formatDuration, formatPlate,
-  NUMERIC_DISPLAY_CLASS,
+  NUMERIC_DISPLAY_CLASS, formatNumber,
 } from '../../utils/formatters';
 
 function cn(...classes) {
@@ -15,7 +15,10 @@ function SignalBars({ strength }) {
   const bars = strength > 70 ? 4 : strength > 40 ? 3 : strength > 0 ? 2 : 0;
 
   return (
-    <div className="flex items-end gap-0.5 h-3" aria-label={`${strength}%`}>
+    <div
+      className="flex items-end gap-0.5 h-3"
+      aria-label={`${formatNumber(strength, { maximumFractionDigits: 0 })}%`}
+    >
       {[1, 2, 3, 4].map((bar) => (
         <div
           key={bar}

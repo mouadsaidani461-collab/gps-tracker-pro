@@ -12,7 +12,7 @@ import { useVehicles } from '../hooks/useVehicles';
 import { useReports } from '../hooks/useReports';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import { formatDistance, formatDuration, formatNumber } from '../utils/formatters';
+import { formatDistance, formatDuration, formatNumber, formatDate, NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -66,6 +66,23 @@ function formatDateStr(d) {
   return d.toISOString().split('T')[0];
 }
 
+/** ISO date key (YYYY-MM-DD) → localized display with Western digits */
+function formatReportDateKey(dateKey, options = {}) {
+  if (!dateKey) return '—';
+  return formatDate(`${dateKey}T00:00:00`, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    numberingSystem: 'latn',
+    ...options,
+  });
+}
+
+const DATE_INPUT_CLASS = cn(
+  'px-3 py-2 rounded-lg text-sm bg-capture-bg/60 border border-slate-600/30 text-slate-200 focus:outline-none focus:shadow-glow-sm',
+  NUMERIC_DISPLAY_CLASS,
+);
+
 function getPresetRange(presetId) {
   const today = new Date();
   const end = formatDateStr(today);
@@ -86,12 +103,20 @@ function getPresetRange(presetId) {
 
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
+  const dateLabel = /^\d{4}-\d{2}-\d{2}$/.test(label)
+    ? formatReportDateKey(label, { month: 'long', day: 'numeric', year: 'numeric' })
+    : label;
   return (
     <div className="bg-capture-card/95 backdrop-blur-md border border-slate-600/30 rounded-lg px-3 py-2 text-xs shadow-glow-sm">
-      <p className="text-slate-300 mb-1">{label}</p>
+      <p className="text-slate-300 mb-1">
+        <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{dateLabel}</span>
+      </p>
       {payload.map((entry) => (
         <p key={entry.name} style={{ color: entry.color }}>
-          {entry.name}: {formatNumber(entry.value, { maximumFractionDigits: 1 })}
+          {entry.name}:{' '}
+          <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+            {formatNumber(entry.value, { maximumFractionDigits: 1 })}
+          </span>
         </p>
       ))}
     </div>
@@ -118,11 +143,16 @@ function VehicleMultiSelect({ vehicles = [], selected, onChange }) {
     );
   };
 
-  const label = selected.length === 0
+  const labelContent = selected.length === 0
     ? 'جميع المركبات'
     : selected.length === 1
       ? selected[0]
-      : `${selected.length} مركبات`;
+      : (
+        <>
+          <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(selected.length, { maximumFractionDigits: 0 })}</span>
+          {' '}مركبات
+        </>
+      );
 
   return (
     <div className="relative" ref={ref}>
@@ -137,7 +167,7 @@ function VehicleMultiSelect({ vehicles = [], selected, onChange }) {
           'transition-all duration-200',
         )}
       >
-        <span className="truncate">{label}</span>
+        <span className="truncate">{labelContent}</span>
         <ChevronDown className={cn('w-4 h-4 text-capture-metallic transition-transform', open && 'rotate-180')} />
       </button>
 
@@ -387,8 +417,15 @@ export default function Reports() {
               <Icon className={cn('w-5 h-5', iconColor)} />
             </div>
             <p className="font-semibold text-slate-100 text-sm">{label}</p>
-            <p className="text-[10px] text-slate-500 mt-0.5">
-              {MOCK_REPORTS.filter((r) => r.category === id).length} سجل
+            <p className="text-[10px] text-slate-500 mt-0.5" dir="ltr">
+              {selectedType === id ? (
+                <>
+                  <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+                    {formatNumber(reportRows?.length ?? 0, { maximumFractionDigits: 0 })}
+                  </span>
+                  {' '}سجل
+                </>
+              ) : '—'}
             </p>
           </button>
         ))}
@@ -429,18 +466,22 @@ export default function Reports() {
                 <label className="block text-xs font-medium text-slate-400 mb-1.5">من</label>
                 <input
                   type="date"
+                  lang="en-US"
+                  dir="ltr"
                   value={dateFrom}
                   onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-                  className="px-3 py-2 rounded-lg text-sm bg-capture-bg/60 border border-slate-600/30 text-slate-200 focus:outline-none focus:shadow-glow-sm"
+                  className={DATE_INPUT_CLASS}
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1.5">إلى</label>
                 <input
                   type="date"
+                  lang="en-US"
+                  dir="ltr"
                   value={dateTo}
                   onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-                  className="px-3 py-2 rounded-lg text-sm bg-capture-bg/60 border border-slate-600/30 text-slate-200 focus:outline-none focus:shadow-glow-sm"
+                  className={DATE_INPUT_CLASS}
                 />
               </div>
             </>
@@ -448,7 +489,13 @@ export default function Reports() {
 
           {datePreset !== 'custom' && (
             <p className="text-xs text-slate-500 pb-2">
-              {dateFrom} → {dateTo}
+              <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+                {formatReportDateKey(dateFrom)}
+              </span>
+              {' → '}
+              <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+                {formatReportDateKey(dateTo)}
+              </span>
             </p>
           )}
 
@@ -467,7 +514,13 @@ export default function Reports() {
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={chartTrendData}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
-              <XAxis dataKey="date" tick={{ fill: CHART_COLORS.text, fontSize: 10 }} axisLine={false} tickLine={false} />
+              <XAxis
+                dataKey="date"
+                tick={{ fill: CHART_COLORS.text, fontSize: 10 }}
+                tickFormatter={(d) => formatReportDateKey(d, { month: 'short', day: 'numeric' })}
+                axisLine={false}
+                tickLine={false}
+              />
               <YAxis
                 tick={{ fill: CHART_COLORS.text, fontSize: 10 }}
                 tickFormatter={(v) => formatNumber(v, { maximumFractionDigits: 0 })}
@@ -520,7 +573,11 @@ export default function Reports() {
           <h3 className="text-sm font-semibold text-slate-200">
             نتائج التقرير
             <span className="text-capture-metallic font-normal ms-2">
-              ({formatNumber(sortedData.length, { maximumFractionDigits: 0 })} سجل)
+              (
+              <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+                {formatNumber(sortedData.length, { maximumFractionDigits: 0 })}
+              </span>
+              {' '}سجل)
             </span>
           </h3>
         </div>
@@ -561,9 +618,15 @@ export default function Reports() {
                       <td className="px-4 py-3 font-medium text-slate-200">{row.vehicle}</td>
                       <td className="px-4 py-3 text-slate-400">{row.driver}</td>
                       <td className="px-4 py-3 text-slate-400">{row.type}</td>
-                      <td className="px-4 py-3 text-slate-400 font-mono text-xs">{row.date}</td>
-                      <td className="px-4 py-3 text-slate-300">{formatDistance(row.distance)}</td>
-                      <td className="px-4 py-3 text-slate-300">{formatDuration(row.duration)}</td>
+                      <td className="px-4 py-3 text-slate-400 font-mono text-xs">
+                        <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatReportDateKey(row.date)}</span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-300">
+                        <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatDistance(row.distance)}</span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-300">
+                        <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatDuration(row.duration)}</span>
+                      </td>
                       <td className="px-4 py-3">
                         <Badge variant={badge.variant} size="sm">{badge.label}</Badge>
                       </td>
@@ -579,9 +642,16 @@ export default function Reports() {
         {sortedData.length > 0 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-600/20">
             <p className="text-xs text-slate-500">
-              صفحة {formatNumber(page, { maximumFractionDigits: 0 })} من {formatNumber(totalPages, { maximumFractionDigits: 0 })}
+              صفحة{' '}
+              <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+                {formatNumber(page, { maximumFractionDigits: 0 })}
+              </span>
+              {' '}من{' '}
+              <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+                {formatNumber(totalPages, { maximumFractionDigits: 0 })}
+              </span>
             </p>
-            <div className="flex items-center gap-1">
+            <div className={cn('flex items-center gap-1', NUMERIC_DISPLAY_CLASS)} dir="ltr">
               <button
                 type="button"
                 disabled={page <= 1}
