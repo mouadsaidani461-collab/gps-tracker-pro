@@ -13,6 +13,14 @@ import { useReports } from '../hooks/useReports';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { formatDistance, formatDuration, formatNumber, formatDate, NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
+import {
+  exportFilename,
+  formatReportRowForExport,
+  rowsToCsv,
+  downloadBlob,
+  exportReportPdf,
+  exportReportExcel,
+} from '../utils/exportUtils';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -318,44 +326,37 @@ export default function Reports() {
       : <ChevronDown className="w-3.5 h-3.5 text-capture-glow" />;
   };
 
-  const simulateExport = (format) => {
+  const handleExport = async (format) => {
     const headers = COLUMNS.map((c) => c.label);
-    const rows = sortedData.map((r) => [
-      r.vehicle, r.driver, r.type, r.date,
-      r.distance, r.duration,
-      STATUS_BADGE[r.status]?.label ?? r.status,
-    ]);
+    const rows = sortedData.map((r) => {
+      const formatted = formatReportRowForExport(r, STATUS_BADGE[r.status]?.label);
+      return [formatted.vehicle, formatted.driver, formatted.type, formatted.date, formatted.distance, formatted.duration, formatted.status];
+    });
+    const baseName = exportFilename(`capture-${selectedType}`, dateFrom, dateTo, format === 'excel' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv');
 
-    if (format === 'csv' || format === 'excel') {
-      const csv = [headers, ...rows].map((row) => row.join(',')).join('\n');
-      const ext = format === 'excel' ? 'xlsx' : 'csv';
-      const mime = format === 'excel'
-        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        : 'text/csv;charset=utf-8;';
-      const blob = new Blob(['\ufeff' + csv], { type: mime });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `capture-report-${selectedType}-${dateFrom}.${ext}`;
-      link.click();
-      URL.revokeObjectURL(url);
-      setExportMsg(`تم تصدير ${format.toUpperCase()} بنجاح`);
-    } else if (format === 'pdf') {
-      const content = [
-        'Capture Tracking GPS — Report',
-        `Type: ${selectedType} | ${dateFrom} → ${dateTo}`,
-        '',
-        headers.join(' | '),
-        ...rows.map((r) => r.join(' | ')),
-      ].join('\n');
-      const blob = new Blob([content], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `capture-report-${selectedType}-${dateFrom}.pdf`;
-      link.click();
-      URL.revokeObjectURL(url);
-      setExportMsg('تم محاكاة تصدير PDF بنجاح');
+    try {
+      if (format === 'csv') {
+        downloadBlob(rowsToCsv(headers, rows), 'text/csv;charset=utf-8;', baseName);
+        setExportMsg('تم تصدير CSV بنجاح');
+      } else if (format === 'excel') {
+        await exportReportExcel({
+          sheetName: selectedType,
+          headers,
+          rows,
+          filename: baseName.endsWith('.xlsx') ? baseName : `${baseName}.xlsx`,
+        });
+        setExportMsg('تم تصدير Excel بنجاح');
+      } else if (format === 'pdf') {
+        await exportReportPdf({
+          title: `Capture GPS — ${selectedType} (${dateFrom} → ${dateTo})`,
+          headers,
+          rows,
+          filename: exportFilename(`capture-${selectedType}`, dateFrom, dateTo, 'pdf'),
+        });
+        setExportMsg('تم تصدير PDF بنجاح');
+      }
+    } catch (err) {
+      setExportMsg(err?.message ?? 'فشل التصدير');
     }
     setTimeout(() => setExportMsg(null), 3000);
   };
@@ -374,13 +375,13 @@ export default function Reports() {
               {exportMsg}
             </span>
           )}
-          <Button variant="secondary" size="sm" leftIcon={<FileText className="w-4 h-4" />} onClick={() => simulateExport('pdf')}>
+          <Button variant="secondary" size="sm" leftIcon={<FileText className="w-4 h-4" />} onClick={() => handleExport('pdf')}>
             PDF
           </Button>
-          <Button variant="secondary" size="sm" leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => simulateExport('excel')}>
+          <Button variant="secondary" size="sm" leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => handleExport('excel')}>
             Excel
           </Button>
-          <Button variant="primary" size="sm" leftIcon={<Download className="w-4 h-4" />} onClick={() => simulateExport('csv')}>
+          <Button variant="primary" size="sm" leftIcon={<Download className="w-4 h-4" />} onClick={() => handleExport('csv')}>
             CSV
           </Button>
         </div>

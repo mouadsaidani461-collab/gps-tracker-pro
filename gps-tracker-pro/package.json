@@ -12,6 +12,9 @@
     "docker:push": "docker push YOUR_DOCKERHUB_USERNAME/gps-tracker-pro:latest"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.17.0",
     "react": "^19.2.6",

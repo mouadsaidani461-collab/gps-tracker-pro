@@ -1,7 +1,7 @@
 import {
   AlertTriangle, AlertCircle, Info, CheckCircle, Check,
 } from 'lucide-react';
-import { formatRelativeTime } from '../../utils/formatters';
+import { formatRelativeTimeParts, formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -128,7 +128,26 @@ export default function NotificationItem({
         </p>
 
         <p className="text-[10px] text-slate-500 mt-1.5">
-          {formatRelativeTime(notification.timestamp)}
+          {(() => {
+            const parts = formatRelativeTimeParts(notification.timestamp);
+            if (parts.type === 'relative') {
+              return (
+                <>
+                  {parts.prefix}{' '}
+                  <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+                    {formatNumber(parts.value, { maximumFractionDigits: 0 })}
+                  </span>
+                  {' '}{parts.suffix}
+                </>
+              );
+            }
+            if (parts.type === 'date') {
+              return (
+                <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{parts.text}</span>
+              );
+            }
+            return parts.text ?? '—';
+          })()}
         </p>
       </div>
     </div>

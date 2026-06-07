@@ -16,6 +16,7 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import UsersPage from './pages/UsersPage';
 import NotFound from './pages/NotFound';
+import PricingPage from './pages/PricingPage';
 
 function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -102,6 +103,8 @@ function AppRoutes() {
             </PublicRoute>
           )}
         />
+
+        <Route path="/pricing" element={<PricingPage />} />
 
         <Route
           element={(

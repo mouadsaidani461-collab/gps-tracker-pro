@@ -1,21 +1,10 @@
-const KNOTS_TO_KMH = 1.852;
+import { EVENT_LABELS, deviceDisplayName } from '../utils/eventLabels';
 
-const EVENT_LABELS = {
-  deviceOverspeed: 'تجاوز السرعة',
-  geofenceEnter: 'دخول منطقة',
-  geofenceExit: 'خروج منطقة',
-  alarm: 'إنذار',
-  deviceMoving: 'حركة',
-  deviceStopped: 'توقف',
-  deviceOffline: 'غير متصل',
-  deviceOnline: 'اتصال',
-  maintenance: 'صيانة',
-  deviceFuelDrop: 'انخفاض وقود',
-};
+const KNOTS_TO_KMH = 1.852;
 
 function deviceLabel(devicesById, deviceId) {
   const device = devicesById[deviceId];
-  return device?.plate || device?.name || String(deviceId);
+  return device?.plate || device?.name || deviceDisplayName(device);
 }
 
 function driverLabel(devicesById, deviceId) {

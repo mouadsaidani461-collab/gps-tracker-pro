@@ -11,9 +11,10 @@ import {
   VEHICLE_STATUS_LABELS,
 } from '../utils/constants';
 import {
-  formatSpeed, formatFuel, formatDistance, formatDuration,
+  formatSpeed, formatFuel, formatDistance,
   formatPlate, formatRelativeTime, formatOdometer, formatNumber, NUMERIC_DISPLAY_CLASS,
 } from '../utils/formatters';
+import { formatVehicleRowForExport, rowsToCsv, downloadBlob, exportFilename } from '../utils/exportUtils';
 import VehicleCard from '../components/dashboard/VehicleCard';
 import { StatusBadge } from '../components/ui/Badge';
 import Button from '../components/ui/Button';
@@ -186,19 +187,12 @@ export default function VehiclesPage() {
   const handleBulkExport = useCallback(() => {
     const selected = vehicles.filter((v) => selectedIds.has(v.id));
     const headers = ['اللوحة', 'الاسم', 'السائق', 'الحالة', 'السرعة', 'الوقود'];
-    const rows = selected.map((v) => [
-      v.plate, v.name, v.driver,
-      VEHICLE_STATUS_LABELS[v.status],
-      v.speed, v.fuel,
-    ]);
-    const csv = [headers, ...rows].map((r) => r.join(',')).join('\n');
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'vehicles-export.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+    const rows = selected.map((v) => formatVehicleRowForExport(v, VEHICLE_STATUS_LABELS[v.status]));
+    downloadBlob(
+      rowsToCsv(headers, rows),
+      'text/csv;charset=utf-8;',
+      exportFilename('vehicles', new Date().toISOString().slice(0, 10), new Date().toISOString().slice(0, 10), 'csv'),
+    );
     setBulkMsg(`تم تصدير ${formatNumber(selected.length, { maximumFractionDigits: 0 })} مركبة`);
     setTimeout(() => setBulkMsg(null), 2500);
   }, [vehicles, selectedIds]);

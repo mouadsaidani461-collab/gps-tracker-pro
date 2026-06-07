@@ -1,0 +1,98 @@
+/**
+ * Export helpers — Western digits in all numeric cells.
+ */
+
+import {
+  formatDate,
+  formatDistance,
+  formatDuration,
+  formatFuel,
+  formatSpeed,
+} from './formatters';
+
+export function exportFilename(prefix, dateFrom, dateTo, ext) {
+  const stamp = new Date().toISOString().slice(0, 10);
+  return `${prefix}-${dateFrom}-to-${dateTo}-${stamp}.${ext}`;
+}
+
+export function formatReportRowForExport(row, statusLabel) {
+  return {
+    vehicle: row.vehicle ?? '',
+    driver: row.driver ?? '',
+    type: row.type ?? '',
+    date: row.date ? formatDate(`${row.date}T00:00:00`, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      numberingSystem: 'latn',
+    }) : '—',
+    distance: formatDistance(row.distance ?? 0),
+    duration: formatDuration(row.duration ?? 0),
+    status: statusLabel ?? row.status ?? '',
+  };
+}
+
+export function formatVehicleRowForExport(vehicle, statusLabel) {
+  return [
+    vehicle.plate ?? '',
+    vehicle.name ?? '',
+    vehicle.driver ?? '',
+    statusLabel ?? '',
+    formatSpeed(vehicle.speed ?? 0),
+    formatFuel(vehicle.fuel ?? 0),
+  ];
+}
+
+export function rowsToCsv(headers, rows) {
+  const escape = (cell) => {
+    const str = String(cell ?? '');
+    return str.includes(',') || str.includes('"') || str.includes('\n')
+      ? `"${str.replace(/"/g, '""')}"`
+      : str;
+  };
+  return [headers, ...rows].map((row) => row.map(escape).join(',')).join('\n');
+}
+
+export function downloadBlob(content, mime, filename) {
+  const blob = new Blob(['\ufeff', content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function exportReportPdf({ title, headers, rows, filename }) {
+  const { jsPDF } = await import('jspdf');
+  const { default: autoTable } = await import('jspdf-autotable');
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  doc.setFontSize(14);
+  doc.text(title, 40, 40);
+  autoTable(doc, {
+    head: [headers],
+    body: rows,
+    startY: 56,
+    styles: { fontSize: 9, cellPadding: 4 },
+    headStyles: { fillColor: [15, 23, 42] },
+  });
+  doc.save(filename);
+}
+
+export async function exportReportExcel({ sheetName, headers, rows, filename }) {
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet(sheetName);
+  sheet.addRow(headers);
+  rows.forEach((row) => sheet.addRow(row));
+  sheet.getRow(1).font = { bold: true };
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}

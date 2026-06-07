@@ -1,0 +1,130 @@
+# Capture Tracking GPS — Hetzner production stack
+#
+# Prerequisites:
+#   1. Copy .env.production.example → .env.production and fill ALL secrets
+#   2. Point DNS gps-tracker-pro.ma → server IP
+#   3. First deploy: ./scripts/deploy-production.sh init
+#
+# Usage:
+#   docker compose -f docker-compose.production.yml --env-file .env.production up -d --build
+#
+# Public:  https://gps-tracker-pro.ma  (edge nginx → frontend → /api → traccar)
+# Traccar HTTP 8082 and GPS protocols are NOT exposed publicly (internal network only).
+# Optional: set GPS_PUBLIC_PORT=5023 in .env.production if trackers must reach this host.
+
+name: capture-gps-production
+
+services:
+  edge:
+    image: nginx:alpine-slim
+    container_name: capture-edge
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/edge.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/security-headers.conf:/etc/nginx/snippets/security-headers.conf:ro
+      - certbot-etc:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+    networks:
+      - capture-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: capture-certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: /bin/sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h; done"
+    networks:
+      - capture-net
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_APP_NAME: ${VITE_APP_NAME:-Capture Tracking GPS}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+        VITE_MAP_TILE_URL: ${VITE_MAP_TILE_URL:-https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png}
+    image: capture-tracking-gps:${IMAGE_TAG:-latest}
+    container_name: capture-tracking-gps
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      traccar-init:
+        condition: service_completed_successfully
+    networks:
+      - capture-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  traccar:
+    image: traccar/traccar:latest
+    container_name: traccar
+    restart: unless-stopped
+    environment:
+      CONFIG_USE_ENVIRONMENT_VARIABLES: "true"
+      WEB_REGISTRATION: "false"
+      WEB_SERVICE_ACCOUNT_TOKEN: ${TRACCAR_SERVICE_TOKEN:?TRACCAR_SERVICE_TOKEN required}
+    volumes:
+      - traccar-data:/opt/traccar
+      - ./docker/traccar.production.xml:/opt/traccar/conf/traccar.xml:ro
+    expose:
+      - "8082"
+      - "5023"
+    ports:
+      - "${GPS_PUBLIC_PORT:-127.0.0.1:5023}:5023"
+    networks:
+      - capture-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8082/api/server"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  traccar-init:
+    image: curlimages/curl:8.12.1
+    container_name: traccar-init
+    depends_on:
+      traccar:
+        condition: service_healthy
+    environment:
+      TRACCAR_URL: http://traccar:8082
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL required}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD required}
+      ADMIN_NAME: ${ADMIN_NAME:-Admin}
+      TRACCAR_SERVICE_TOKEN: ${TRACCAR_SERVICE_TOKEN:?TRACCAR_SERVICE_TOKEN required}
+      DISABLE_REGISTRATION: "true"
+    volumes:
+      - ./scripts/setup-traccar-admin.sh:/setup.sh:ro
+    entrypoint: ["/bin/sh", "/setup.sh"]
+    networks:
+      - capture-net
+    restart: "no"
+
+networks:
+  capture-net:
+    driver: bridge
+
+volumes:
+  traccar-data:
+  certbot-etc:
+  certbot-www:

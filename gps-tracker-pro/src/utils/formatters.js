@@ -109,6 +109,46 @@ export function formatRelativeTime(isoString) {
   return formatDate(isoString);
 }
 
+/** Structured parts for RTL UI — numeric span uses Western digits + dir=ltr */
+export function formatRelativeTimeParts(isoString) {
+  if (!isoString) return { type: 'empty', text: '—' };
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return { type: 'empty', text: '—' };
+
+  const diffMs = Date.now() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+
+  if (diffSec < 60) return { type: 'now', text: 'الآن' };
+  if (diffMin < 60) {
+    return {
+      type: 'relative',
+      prefix: 'منذ',
+      value: diffMin,
+      suffix: diffMin === 1 ? 'دقيقة' : 'دقائق',
+    };
+  }
+  if (diffHour < 24) {
+    return {
+      type: 'relative',
+      prefix: 'منذ',
+      value: diffHour,
+      suffix: diffHour === 1 ? 'ساعة' : 'ساعات',
+    };
+  }
+  if (diffDay < 7) {
+    return {
+      type: 'relative',
+      prefix: 'منذ',
+      value: diffDay,
+      suffix: diffDay === 1 ? 'يوم' : 'أيام',
+    };
+  }
+  return { type: 'date', text: formatDate(isoString) };
+}
+
 // ── Distance ──
 
 /** Format km value → "245.3 km" (Western digits) */

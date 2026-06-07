@@ -1,4 +1,6 @@
 import { MAP, VEHICLE_STATUS } from '../utils/constants';
+import { eventLabel, deviceDisplayName } from '../utils/eventLabels';
+import { formatSpeed } from '../utils/formatters';
 
 const KNOTS_TO_KMH = 1.852;
 
@@ -56,12 +58,19 @@ export function indexPositions(positions) {
 
 export function mapEventToNotification(event, devices = []) {
   const device = devices.find((d) => d.id === event.deviceId);
+  const label = eventLabel(event.type);
+  const name = deviceDisplayName(device);
+  const speedAttr = event.attributes?.speed;
+  const speedSuffix = speedAttr != null
+    ? ` (${formatSpeed(Math.round(Number(speedAttr) * 1.852))})`
+    : '';
+
   return {
     id: String(event.id),
     type: event.type === 'alarm' || event.type === 'deviceOverspeed' ? 'alert' : 'info',
     vehicleId: String(event.deviceId),
-    title: event.type,
-    message: event.attributes?.message || `${device?.name || event.deviceId}: ${event.type}`,
+    title: `${label} — ${name}`,
+    message: event.attributes?.message || `${name}: ${label}${speedSuffix}`,
     timestamp: event.eventTime || new Date().toISOString(),
     read: false,
   };
