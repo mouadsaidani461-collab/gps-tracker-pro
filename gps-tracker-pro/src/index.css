@@ -206,4 +206,32 @@ body {
 .status-dot--success { background: var(--color-capture-success); box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
 .status-dot--warning { background: var(--color-capture-warning); box-shadow: 0 0 8px rgba(245, 158, 11, 0.6); }
 .status-dot--danger  { background: var(--color-capture-danger);  box-shadow: 0 0 8px rgba(244, 63, 94, 0.6); }
-.status-dot--primary { background: var(--color-capture-primary); box-shadow: 0 0 8px rgba(6, 182, 212, 0.6); }
+
+/* ── Western digits utility (Phase 3.4) ── */
+.NUMERIC_DISPLAY_CLASS {
+  unicode-bidi: embed;
+  direction: ltr;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Leaflet map — force Western digits in controls & overlays ── */
+.leaflet-control-zoom-level,
+.leaflet-control-zoom a,
+.leaflet-control-scale-line,
+.leaflet-bottom.leaflet-right,
+.capture-map-coords,
+.capture-leaflet-map .leaflet-control {
+  direction: ltr;
+  unicode-bidi: embed;
+  font-variant-numeric: tabular-nums;
+}
+
+.leaflet-control-zoom a {
+  font-family: var(--font-sans);
+}
+
+.leaflet-popup-content,
+.leaflet-container {
+  font-variant-numeric: tabular-nums;
+}

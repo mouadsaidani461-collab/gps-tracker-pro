@@ -12,7 +12,7 @@ import {
 } from '../utils/constants';
 import {
   formatSpeed, formatFuel, formatDistance, formatDuration,
-  formatPlate, formatRelativeTime, formatOdometer, formatNumber,
+  formatPlate, formatRelativeTime, formatOdometer, formatNumber, NUMERIC_DISPLAY_CLASS,
 } from '../utils/formatters';
 import VehicleCard from '../components/dashboard/VehicleCard';
 import { StatusBadge } from '../components/ui/Badge';
@@ -65,20 +65,26 @@ function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
 
         <div className="grid sm:grid-cols-2 gap-4">
           {[
-            { icon: Gauge, label: 'السرعة', value: formatSpeed(vehicle.speed) },
-            { icon: Fuel, label: 'الوقود', value: formatFuel(vehicle.fuel) },
-            { icon: Battery, label: 'البطارية', value: formatFuel(vehicle.battery) },
-            { icon: Signal, label: 'الإشارة', value: formatFuel(vehicle.signal) },
-            { icon: Route, label: 'عداد المسافة', value: formatDistance(odometerKm) },
-            { icon: Clock, label: 'آخر تحديث', value: formatRelativeTime(vehicle.lastUpdate) },
+            { icon: Gauge, label: 'السرعة', value: formatSpeed(vehicle.speed), numeric: true },
+            { icon: Fuel, label: 'الوقود', value: formatFuel(vehicle.fuel), numeric: true },
+            { icon: Battery, label: 'البطارية', value: formatFuel(vehicle.battery), numeric: true },
+            { icon: Signal, label: 'الإشارة', value: formatFuel(vehicle.signal), numeric: true },
+            { icon: Route, label: 'عداد المسافة', value: formatDistance(odometerKm), numeric: true },
+            { icon: Clock, label: 'آخر تحديث', value: formatRelativeTime(vehicle.lastUpdate), numeric: true },
             { icon: MapPin, label: 'الموقع', value: vehicle.location?.address ?? '—' },
             { icon: Phone, label: 'السائق', value: vehicle.driver },
-          ].map(({ icon: Icon, label, value }) => (
+          ].map(({ icon: Icon, label, value, numeric }) => (
             <div key={label} className="flex items-start gap-3 p-3 rounded-lg bg-capture-bg/40 border border-slate-600/20">
               <Icon className="w-4 h-4 text-capture-glow shrink-0 mt-0.5" />
               <div>
                 <p className="text-[10px] text-slate-500">{label}</p>
-                <p className="text-sm text-slate-200">{value}</p>
+                {numeric ? (
+                  <p className="text-sm text-slate-200">
+                    <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{value}</span>
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-200">{value}</p>
+                )}
               </div>
             </div>
           ))}
@@ -86,7 +92,9 @@ function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
 
         <div className="p-3 rounded-lg bg-capture-bg/40 border border-slate-600/20">
           <p className="text-[10px] text-slate-500 mb-1">عداد المسافة</p>
-          <p className="text-sm text-slate-200">{formatOdometer(vehicle.odometer)}</p>
+          <p className="text-sm text-slate-200">
+            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatOdometer(vehicle.odometer)}</span>
+          </p>
         </div>
 
         {vehicle.geofence && (
@@ -105,7 +113,11 @@ function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
           <div>
             <p className="text-sm font-medium text-slate-300 mb-2 flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4 text-capture-warning" />
-              التنبيهات ({formatNumber(vehicle.alerts.length, { maximumFractionDigits: 0 })})
+              التنبيهات (
+              <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+                {formatNumber(vehicle.alerts.length, { maximumFractionDigits: 0 })}
+              </span>
+              )
             </p>
             <div className="space-y-2">
               {vehicle.alerts.map((a) => (
@@ -208,7 +220,10 @@ export default function VehiclesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-100">المركبات</h1>
           <p className="text-sm text-capture-metallic mt-1">
-            {formatNumber(filtered.length, { maximumFractionDigits: 0 })} من {formatNumber(vehicles.length, { maximumFractionDigits: 0 })} مركبة
+            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(filtered.length, { maximumFractionDigits: 0 })}</span>
+            {' '}من{' '}
+            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(vehicles.length, { maximumFractionDigits: 0 })}</span>
+            {' '}مركبة
           </p>
         </div>
 
@@ -292,7 +307,11 @@ export default function VehiclesPage() {
             </div>
             <div>
               <label className="text-xs text-slate-400 mb-1.5 block">
-                الحد الأدنى للوقود: {formatNumber(minFuel, { maximumFractionDigits: 0 })}%
+                الحد الأدنى للوقود:{' '}
+                <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+                  {formatNumber(minFuel, { maximumFractionDigits: 0 })}
+                </span>
+                %
               </label>
               <input
                 type="range"
@@ -326,7 +345,10 @@ export default function VehiclesPage() {
               <X className="w-4 h-4" />
             </button>
             <span className="text-sm text-capture-glow font-medium">
-              {formatNumber(selectedIds.size, { maximumFractionDigits: 0 })} محدد
+              <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+                {formatNumber(selectedIds.size, { maximumFractionDigits: 0 })}
+              </span>
+              {' '}محدد
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -427,8 +449,12 @@ export default function VehiclesPage() {
                     </td>
                     <td className="px-4 py-3 text-slate-400">{vehicle.driver}</td>
                     <td className="px-4 py-3"><StatusBadge status={vehicle.status} size="sm" /></td>
-                    <td className="px-4 py-3 text-slate-300">{formatSpeed(vehicle.speed)}</td>
-                    <td className="px-4 py-3 text-slate-300">{formatFuel(vehicle.fuel)}</td>
+                    <td className="px-4 py-3 text-slate-300">
+                      <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatSpeed(vehicle.speed)}</span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-300">
+                      <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatFuel(vehicle.fuel)}</span>
+                    </td>
                     <td className="px-4 py-3 text-slate-400 truncate max-w-[180px]">{vehicle.location?.address}</td>
                   </tr>
                 ))}

@@ -1,5 +1,9 @@
 # ── Stage 1: Build ────────────────────────────────────────────────────────────
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
+
+# Patch Alpine packages (node:20-alpine ships 11 HIGH CVEs in bundled npm)
+RUN apk upgrade --no-cache \
+    && rm -rf /var/cache/apk/*
 
 WORKDIR /app
 
@@ -11,7 +15,7 @@ COPY . .
 
 # Vite embeds VITE_* variables at build time
 ARG VITE_APP_NAME="Capture Tracking GPS"
-ARG VITE_API_BASE_URL=""
+ARG VITE_API_BASE_URL="/api"
 ARG VITE_MAP_TILE_URL="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
 
 ENV VITE_APP_NAME=$VITE_APP_NAME \
@@ -21,7 +25,11 @@ ENV VITE_APP_NAME=$VITE_APP_NAME \
 RUN npm run build
 
 # ── Stage 2: Production ───────────────────────────────────────────────────────
-FROM nginx:alpine AS production
+FROM nginx:alpine-slim AS production
+
+# Apply Alpine security patches (slim image has fewer packages = smaller attack surface)
+RUN apk upgrade --no-cache \
+    && rm -rf /var/cache/apk/*
 
 LABEL org.opencontainers.image.title="Capture Tracking GPS" \
       org.opencontainers.image.description="GPS fleet tracking dashboard (React SPA)"

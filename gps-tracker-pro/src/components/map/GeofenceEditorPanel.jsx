@@ -127,9 +127,10 @@ export default function GeofenceEditorPanel({
 
           {drawMode === 'create-polygon' && (
             <div className="flex flex-wrap gap-2 pt-1">
-              <span className={cn('text-[10px] text-slate-300', NUMERIC_DISPLAY_CLASS)}>
-                {formatNumber(polygonDraft.length)} نقطة
+              <span className={cn('text-[10px] text-slate-300', NUMERIC_DISPLAY_CLASS)} dir="ltr">
+                {formatNumber(polygonDraft.length, { maximumFractionDigits: 0 })}
               </span>
+              {' '}نقطة
               {polygonDraft.length > 0 && (
                 <button
                   type="button"
@@ -185,8 +186,9 @@ export default function GeofenceEditorPanel({
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
-        <p className="text-[10px] text-capture-metallic sticky top-0 bg-capture-surface/95 py-1">
-          {formatNumber(geofences.length)} منطقة
+        <p className={cn('text-[10px] text-capture-metallic sticky top-0 bg-capture-surface/95 py-1', NUMERIC_DISPLAY_CLASS)}>
+          <span dir="ltr">{formatNumber(geofences.length, { maximumFractionDigits: 0 })}</span>
+          {' '}منطقة
         </p>
 
         {geofences.map((gf) => {
@@ -267,7 +269,10 @@ export default function GeofenceEditorPanel({
 
           {isPolygonGeofence(selectedGeofence) && (
             <p className={cn('text-xs text-capture-metallic', NUMERIC_DISPLAY_CLASS)}>
-              {formatNumber(selectedGeofence.coordinates?.length ?? 0)} نقاط — لإعادة الرسم، أنشئ مضلعاً جديداً
+              <span dir="ltr">
+                {formatNumber(selectedGeofence.coordinates?.length ?? 0, { maximumFractionDigits: 0 })}
+              </span>
+              {' '}نقاط — لإعادة الرسم، أنشئ مضلعاً جديداً
             </p>
           )}
 

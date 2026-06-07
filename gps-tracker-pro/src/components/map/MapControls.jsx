@@ -1,9 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useMap } from 'react-leaflet';
 import {
   Plus, Minus, Layers, Maximize, Minimize, Crosshair,
 } from 'lucide-react';
 import { MAP } from '../../utils/constants';
+import { formatNumber, formatCoordinates, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -35,6 +36,16 @@ export default function MapControls({
   onFullscreenChange,
 }) {
   const map = useMap();
+  const [zoom, setZoom] = useState(() => map.getZoom());
+
+  useEffect(() => {
+    const syncZoom = () => setZoom(map.getZoom());
+    syncZoom();
+    map.on('zoomend', syncZoom);
+    return () => {
+      map.off('zoomend', syncZoom);
+    };
+  }, [map]);
 
   const handleZoomIn = useCallback(() => map.zoomIn(), [map]);
   const handleZoomOut = useCallback(() => map.zoomOut(), [map]);
@@ -72,6 +83,11 @@ export default function MapControls({
     'transition-all duration-200',
   );
 
+  const panelClass = cn(
+    'px-2 py-1 rounded-lg bg-capture-card/90 backdrop-blur-md',
+    'border border-slate-600/30 text-[10px] text-capture-metallic text-center',
+  );
+
   return (
     <div className="absolute bottom-6 end-6 z-[1000] flex flex-col gap-1.5">
       {/* Zoom */}
@@ -81,6 +97,12 @@ export default function MapControls({
       <button type="button" onClick={handleZoomOut} className={btnClass} aria-label="تصغير">
         <Minus className="w-4 h-4" />
       </button>
+
+      <div className={cn(panelClass, 'leaflet-control-zoom-level')} dir="ltr">
+        <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+          {formatNumber(zoom, { maximumFractionDigits: 0 })}
+        </span>
+      </div>
 
       {/* Layer toggle */}
       <button
@@ -115,9 +137,17 @@ export default function MapControls({
       </button>
 
       {/* Layer label */}
-      <div className="mt-1 px-2 py-1 rounded-lg bg-capture-card/90 backdrop-blur-md border border-slate-600/30 text-[10px] text-capture-metallic text-center">
+      <div className={cn(panelClass, 'mt-1')}>
         {TILE_LAYERS[layer]?.label}
       </div>
+
+      {selectedVehicle && (
+        <div className={cn(panelClass, 'capture-map-coords mt-1 max-w-[9rem]')} dir="ltr">
+          <span className={cn(NUMERIC_DISPLAY_CLASS, 'text-[9px] leading-tight block')} dir="ltr">
+            {formatCoordinates(selectedVehicle.location.lat, selectedVehicle.location.lng)}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

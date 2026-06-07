@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search } from 'lucide-react';
 import VehicleCard from './VehicleCard';
 import { VEHICLE_FILTERS } from '../../utils/constants';
+import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -97,7 +98,10 @@ export default function VehicleList({
       </div>
 
       <p className="text-[10px] text-slate-600 mt-2 shrink-0 text-center">
-        {filtered.length} من {vehicles.length} مركبة
+        <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(filtered.length, { maximumFractionDigits: 0 })}</span>
+        {' '}من{' '}
+        <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(vehicles.length, { maximumFractionDigits: 0 })}</span>
+        {' '}مركبة
       </p>
     </div>
   );

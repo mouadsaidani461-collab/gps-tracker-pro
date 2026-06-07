@@ -1,22 +1,103 @@
+# Capture Tracking GPS — production stack
+#
+# Usage:
+#   cd gps-tracker-pro
+#   docker compose --env-file .env.production up --build -d
+#
+# App UI:     http://localhost:3001 (FRONTEND_PORT)
+# Traccar UI: http://localhost:8082
+#
+# Optional MySQL: docker compose --profile mysql up --build -d
+
 services:
-  capture-tracking-gps:
+  frontend:
     build:
       context: .
       dockerfile: Dockerfile
       args:
         VITE_APP_NAME: ${VITE_APP_NAME:-Capture Tracking GPS}
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
         VITE_MAP_TILE_URL: ${VITE_MAP_TILE_URL:-https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png}
     image: capture-tracking-gps:latest
     container_name: capture-tracking-gps
-    ports:
-      - "3000:80"
     restart: unless-stopped
-    environment:
-      NODE_ENV: production
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      traccar-init:
+        condition: service_completed_successfully
+    networks:
+      - capture-net
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
       interval: 30s
       timeout: 3s
       retries: 3
-      start_period: 5s
+      start_period: 10s
+
+  traccar:
+    image: traccar/traccar:latest
+    container_name: traccar
+    restart: unless-stopped
+    environment:
+      CONFIG_USE_ENVIRONMENT_VARIABLES: "true"
+      WEB_REGISTRATION: "true"
+      WEB_SERVICE_ACCOUNT_TOKEN: ${TRACCAR_SERVICE_TOKEN:-capture-bootstrap-change-me}
+    volumes:
+      - traccar-data:/opt/traccar
+      - ./docker/traccar.xml:/opt/traccar/conf/traccar.xml:ro
+    expose:
+      - "8082"
+    ports:
+      - "${TRACCAR_HTTP_PORT:-8082}:8082"
+      - "5023:5023"
+    networks:
+      - capture-net
+
+  traccar-init:
+    image: curlimages/curl:8.12.1
+    container_name: traccar-init
+    depends_on:
+      traccar:
+        condition: service_started
+    environment:
+      TRACCAR_URL: http://traccar:8082
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-mouadsaidani461@gmail.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ADMIN_NAME: ${ADMIN_NAME:-mouad}
+      TRACCAR_SERVICE_TOKEN: ${TRACCAR_SERVICE_TOKEN:-capture-bootstrap-change-me}
+    volumes:
+      - ./scripts/setup-traccar-admin.sh:/setup.sh:ro
+    entrypoint: ["/bin/sh", "/setup.sh"]
+    networks:
+      - capture-net
+    restart: "no"
+
+  database:
+    profiles: [mysql]
+    image: mysql:8.4
+    container_name: traccar-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-traccar}
+      MYSQL_USER: ${MYSQL_USER:-traccar}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-traccar}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - capture-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-changeme}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  capture-net:
+    driver: bridge
+
+volumes:
+  traccar-data:
+  mysql-data:

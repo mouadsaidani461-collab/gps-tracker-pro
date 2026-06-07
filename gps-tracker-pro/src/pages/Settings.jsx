@@ -2,11 +2,20 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   User, Bell, Shield, Palette, Globe, Camera, Save,
   CheckCircle, Moon, Sun, Volume2, VolumeX, Mail, Lock,
+  BatteryLow, BatteryWarning, PlugZap,
+  WifiOff, Timer, Clock,
+  Gauge, AlertTriangle, Zap,
+  MapPin, LogOut, MoonStar,
+  Wrench, CircleDot, ClipboardCheck, ShieldCheck,
+  TrendingDown, TrendingUp, RotateCcw, Car,
+  CloudLightning, CloudRain, CloudFog, ThermometerSun,
+  Fuel, Droplets, BellRing,
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNotificationContext } from '../context/NotificationContext';
 import { LOCALE, COLORS } from '../utils/constants';
+import { NUMERIC_DISPLAY_CLASS, toWesternNumerals } from '../utils/formatters';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 
@@ -24,24 +33,131 @@ const TABS = [
   { id: 'language', label: 'اللغة', icon: Globe },
 ];
 
-const NOTIFICATION_TOGGLES = [
-  { id: 'speed', label: 'تنبيهات السرعة', description: 'عند تجاوز المركبة للسرعة المحددة' },
-  { id: 'geofence', label: 'تنبيهات المناطق الجغرافية', description: 'دخول أو خروج من المناطق' },
-  { id: 'battery', label: 'تنبيهات البطارية', description: 'مستوى بطارية منخفض' },
-  { id: 'maintenance', label: 'تذكيرات الصيانة', description: 'مواعيد الصيانة المجدولة' },
-  { id: 'email', label: 'إشعارات البريد', description: 'إرسال نسخة عبر البريد الإلكتروني' },
-  { id: 'critical', label: 'تنبيهات حرجة', description: 'إشعارات فورية للحالات الحرجة' },
+const NOTIFICATION_META = [
+  { id: 'email', label: 'إشعارات البريد', description: 'إرسال نسخة عبر البريد الإلكتروني', icon: Mail, severity: 'info', defaultEnabled: false },
+  { id: 'critical', label: 'تنبيهات حرجة', description: 'إشعارات فورية للحالات الحرجة', icon: BellRing, severity: 'danger', defaultEnabled: true },
 ];
+
+const NOTIFICATION_CATEGORIES = [
+  {
+    id: 'battery',
+    title: 'تنبيهات البطارية',
+    items: [
+      { id: 'battery_low', label: 'بطارية منخفضة', description: 'عند انخفاض مستوى البطارية عن 20%', icon: BatteryLow, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'battery_critical', label: 'بطارية حرجة', description: 'عند انخفاض مستوى البطارية عن 10%', icon: BatteryWarning, severity: 'danger', defaultEnabled: true, defaultSound: true },
+      { id: 'battery_not_charging', label: 'الجهاز غير مشحون', description: 'عند توقف الشحن رغم انخفاض البطارية', icon: PlugZap, severity: 'warning', defaultEnabled: true, defaultSound: false },
+    ],
+  },
+  {
+    id: 'offline',
+    title: 'الجهاز غير متصل',
+    items: [
+      { id: 'offline_30m', label: 'غير متصل > 30 دقيقة', description: 'تنبيه عند انقطاع الاتصال لأكثر من 30 دقيقة', icon: WifiOff, severity: 'warning', defaultEnabled: true, defaultSound: false },
+      { id: 'offline_2h', label: 'غير متصل > ساعتين', description: 'تنبيه عند انقطاع الاتصال لأكثر من ساعتين', icon: Timer, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'offline_24h', label: 'غير متصل > 24 ساعة', description: 'تنبيه عند انقطاع الاتصال لأكثر من 24 ساعة', icon: Clock, severity: 'danger', defaultEnabled: true, defaultSound: true },
+    ],
+  },
+  {
+    id: 'speed',
+    title: 'تنبيهات السرعة',
+    items: [
+      { id: 'speed_limit_80', label: 'تجاوز 80 كم/س', description: 'تنبيه عند تجاوز حد السرعة 80 كم/س', icon: Gauge, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'speed_limit_120', label: 'تجاوز 120 كم/س', description: 'تنبيه عند تجاوز حد السرعة 120 كم/س', icon: AlertTriangle, severity: 'danger', defaultEnabled: true, defaultSound: true },
+      { id: 'speed_dangerous_150', label: 'سرعة خطرة > 150 كم/س', description: 'تنبيه فوري للسرعات الخطرة فوق 150 كم/س', icon: Zap, severity: 'danger', defaultEnabled: true, defaultSound: true },
+    ],
+  },
+  {
+    id: 'geofence',
+    title: 'تنبيهات المناطق الجغرافية',
+    items: [
+      { id: 'geofence_enter_restricted', label: 'دخول منطقة محظورة', description: 'عند دخول مركبة إلى منطقة جغرافية محظورة', icon: MapPin, severity: 'danger', defaultEnabled: true, defaultSound: true },
+      { id: 'geofence_exit_allowed', label: 'خروج من منطقة مسموحة', description: 'عند خروج المركبة من المنطقة المسموح بها', icon: LogOut, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'geofence_enter_after_22', label: 'دخول بعد 22:00', description: 'دخول منطقة جغرافية بعد الساعة 22:00', icon: MoonStar, severity: 'warning', defaultEnabled: true, defaultSound: false },
+    ],
+  },
+  {
+    id: 'maintenance',
+    title: 'تذكيرات الصيانة',
+    items: [
+      { id: 'maintenance_oil', label: 'تغيير الزيت', description: 'تذكير كل 5000 كم', icon: Wrench, severity: 'info', defaultEnabled: true, defaultSound: false },
+      { id: 'maintenance_brakes', label: 'فحص الفرامل', description: 'تذكير بفحص نظام الفرامل', icon: CircleDot, severity: 'warning', defaultEnabled: true, defaultSound: false },
+      { id: 'maintenance_inspection', label: 'فحص عام', description: 'تذكير بالفحص الدوري للمركبة', icon: ClipboardCheck, severity: 'info', defaultEnabled: true, defaultSound: false },
+      { id: 'maintenance_insurance', label: 'انتهاء التأمين', description: 'تذكير قبل انتهاء صلاحية التأمين', icon: ShieldCheck, severity: 'warning', defaultEnabled: true, defaultSound: true },
+    ],
+  },
+  {
+    id: 'driver',
+    title: 'سلوك السائق',
+    items: [
+      { id: 'driver_hard_brake', label: 'فرملة قوية', description: 'كشف فرملة مفاجئة أو قوية', icon: TrendingDown, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'driver_rapid_accel', label: 'تسارع مفاجئ', description: 'كشف تسارع سريع أو غير طبيعي', icon: TrendingUp, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'driver_sharp_turn', label: 'انعطاف حاد', description: 'كشف انعطاف حاد بسرعة مرتفعة', icon: RotateCcw, severity: 'warning', defaultEnabled: true, defaultSound: false },
+      { id: 'driver_night_driving', label: 'قيادة ليلية', description: 'تنبيه عند القيادة في ساعات متأخرة من الليل', icon: Car, severity: 'info', defaultEnabled: false, defaultSound: false },
+    ],
+  },
+  {
+    id: 'weather',
+    title: 'تنبيهات الطقس',
+    items: [
+      { id: 'weather_storm', label: 'عاصفة', description: 'تنبيه بعاصفة في منطقة المركبة', icon: CloudLightning, severity: 'danger', defaultEnabled: true, defaultSound: true },
+      { id: 'weather_heavy_rain', label: 'أمطار غزيرة', description: 'تنبيه بأمطار غزيرة قد تؤثر على القيادة', icon: CloudRain, severity: 'warning', defaultEnabled: true, defaultSound: false },
+      { id: 'weather_fog', label: 'ضباب', description: 'تنبيه بانخفاض الرؤية بسبب الضباب', icon: CloudFog, severity: 'warning', defaultEnabled: true, defaultSound: false },
+      { id: 'weather_extreme_heat', label: 'حرارة شديدة', description: 'تنبيه بدرجات حرارة مرتفعة جداً', icon: ThermometerSun, severity: 'info', defaultEnabled: true, defaultSound: false },
+    ],
+  },
+  {
+    id: 'fuel',
+    title: 'تنبيهات الوقود',
+    items: [
+      { id: 'fuel_low', label: 'مستوى وقود منخفض', description: 'عند انخفاض مستوى الوقود عن الحد المحدد', icon: Fuel, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'fuel_abnormal', label: 'استهلاك غير طبيعي', description: 'كشف استهلاك وقود أعلى من المعدل المعتاد', icon: TrendingDown, severity: 'warning', defaultEnabled: true, defaultSound: false },
+      { id: 'fuel_theft', label: 'سرقة وقود', description: 'انخفاض مفاجئ في مستوى الوقود (احتمال سرقة)', icon: Droplets, severity: 'danger', defaultEnabled: true, defaultSound: true },
+    ],
+  },
+];
+
+const SEVERITY_STYLES = {
+  info: {
+    badge: 'bg-capture-primary/15 text-capture-glow border-capture-primary/30',
+    icon: 'text-capture-glow',
+  },
+  warning: {
+    badge: 'bg-capture-warning/15 text-capture-warning border-capture-warning/30',
+    icon: 'text-capture-warning',
+  },
+  danger: {
+    badge: 'bg-capture-danger/15 text-capture-danger border-capture-danger/30',
+    icon: 'text-capture-danger',
+  },
+};
+
+const SEVERITY_LABELS = {
+  info: 'معلومة',
+  warning: 'تحذير',
+  danger: 'خطر',
+};
+
+function buildDefaultNotifSettings() {
+  const settings = {};
+  NOTIFICATION_META.forEach(({ id, defaultEnabled }) => {
+    settings[id] = defaultEnabled;
+  });
+  NOTIFICATION_CATEGORIES.forEach((category) => {
+    category.items.forEach(({ id, defaultEnabled, defaultSound }) => {
+      settings[id] = defaultEnabled;
+      settings[`${id}_sound`] = defaultSound;
+    });
+  });
+  return settings;
+}
+
+const DEFAULT_NOTIF = buildDefaultNotifSettings();
 
 const LANGUAGES = [
   { id: 'ar', label: 'العربية', flag: '🇲🇦', dir: 'rtl' },
   { id: 'fr', label: 'Français', flag: '🇫🇷', dir: 'ltr' },
   { id: 'en', label: 'English', flag: '🇬🇧', dir: 'ltr' },
 ];
-
-const DEFAULT_NOTIF = Object.fromEntries(
-  NOTIFICATION_TOGGLES.map((t) => [t.id, t.id !== 'battery']),
-);
 
 function loadSettings() {
   try {
@@ -77,6 +193,57 @@ function Toggle({ checked, onChange, disabled = false }) {
         )}
       />
     </button>
+  );
+}
+
+function NotificationItemRow({
+  item,
+  enabled,
+  soundOn,
+  soundEnabled,
+  onToggle,
+  onSoundToggle,
+  showSound = true,
+}) {
+  const Icon = item.icon;
+  const severityStyle = SEVERITY_STYLES[item.severity];
+
+  return (
+    <div className="flex items-start justify-between gap-3 py-3 border-b border-slate-600/10 last:border-0">
+      <div className="flex items-start gap-3 min-w-0 flex-1">
+        <div className={cn('p-2 rounded-lg border shrink-0', severityStyle.badge)}>
+          <Icon className={cn('w-4 h-4', severityStyle.icon)} />
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-medium text-slate-200">{item.label}</p>
+            <span className={cn('text-[10px] px-1.5 py-0.5 rounded border', severityStyle.badge)}>
+              {SEVERITY_LABELS[item.severity]}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-0.5">{item.description}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {showSound && soundEnabled && (
+          <button
+            type="button"
+            title={soundOn ? 'إيقاف الصوت' : 'تشغيل الصوت'}
+            aria-label={soundOn ? 'إيقاف الصوت' : 'تشغيل الصوت'}
+            onClick={() => onSoundToggle(!soundOn)}
+            className={cn(
+              'p-1.5 rounded-lg border transition-colors',
+              soundOn
+                ? 'border-capture-primary/40 bg-capture-primary/10 text-capture-glow'
+                : 'border-slate-600/30 text-slate-500 hover:text-slate-300',
+            )}
+          >
+            {soundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          </button>
+        )}
+        <Toggle checked={enabled} onChange={onToggle} />
+      </div>
+    </div>
   );
 }
 
@@ -317,10 +484,13 @@ export default function Settings() {
                 <Input
                   id="profile-phone"
                   label="الهاتف"
+                  dir="ltr"
+                  inputMode="tel"
                   value={profile.phone}
-                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                  onChange={(e) => setProfile({ ...profile, phone: toWesternNumerals(e.target.value) })}
                   error={fieldErrors.phone}
-                  placeholder="+216 71 123 456"
+                  placeholder="+212 6 12 34 56 78"
+                  inputClassName={NUMERIC_DISPLAY_CLASS}
                 />
                 <Input
                   id="profile-company"
@@ -351,19 +521,39 @@ export default function Settings() {
                 <Toggle checked={soundEnabled} onChange={setSoundEnabled} />
               </div>
 
-              {NOTIFICATION_TOGGLES.map(({ id, label, description }) => (
-                <div
-                  key={id}
-                  className="flex items-center justify-between py-3 border-b border-slate-600/10 last:border-0"
-                >
-                  <div>
-                    <p className="text-sm text-slate-200">{label}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{description}</p>
-                  </div>
-                  <Toggle
-                    checked={notifSettings[id]}
-                    onChange={(val) => setNotifSettings({ ...notifSettings, [id]: val })}
+              <div className="rounded-xl bg-capture-bg/40 border border-slate-600/20 px-4">
+                <h3 className="text-sm font-semibold text-slate-300 pt-4 pb-1">إعدادات عامة</h3>
+                {NOTIFICATION_META.map((item) => (
+                  <NotificationItemRow
+                    key={item.id}
+                    item={item}
+                    enabled={notifSettings[item.id]}
+                    soundOn={false}
+                    soundEnabled={soundEnabled}
+                    showSound={false}
+                    onToggle={(val) => setNotifSettings({ ...notifSettings, [item.id]: val })}
+                    onSoundToggle={() => {}}
                   />
+                ))}
+              </div>
+
+              {NOTIFICATION_CATEGORIES.map((category) => (
+                <div
+                  key={category.id}
+                  className="rounded-xl bg-capture-bg/40 border border-slate-600/20 px-4"
+                >
+                  <h3 className="text-sm font-semibold text-slate-300 pt-4 pb-1">{category.title}</h3>
+                  {category.items.map((item) => (
+                    <NotificationItemRow
+                      key={item.id}
+                      item={item}
+                      enabled={notifSettings[item.id] ?? item.defaultEnabled}
+                      soundOn={notifSettings[`${item.id}_sound`] ?? item.defaultSound}
+                      soundEnabled={soundEnabled}
+                      onToggle={(val) => setNotifSettings({ ...notifSettings, [item.id]: val })}
+                      onSoundToggle={(val) => setNotifSettings({ ...notifSettings, [`${item.id}_sound`]: val })}
+                    />
+                  ))}
                 </div>
               ))}
             </div>
