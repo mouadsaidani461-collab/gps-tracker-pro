@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   User, Bell, Shield, Palette, Globe, Camera, Save,
   CheckCircle, Moon, Sun, Volume2, VolumeX, Mail, Lock,
@@ -11,13 +11,15 @@ import {
   CloudLightning, CloudRain, CloudFog, ThermometerSun,
   Fuel, Droplets, BellRing,
 } from 'lucide-react';
-import { useAuth, ROLE_LABELS } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNotificationContext } from '../context/NotificationContext';
-import { LOCALE, COLORS } from '../utils/constants';
+import { useLocale } from '../context/LocaleContext';
+import { COLORS } from '../utils/constants';
 import { NUMERIC_DISPLAY_CLASS, toWesternNumerals } from '../utils/formatters';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import { isNotificationPrefWired } from '../utils/notificationPreferences';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -25,17 +27,17 @@ function cn(...classes) {
 
 const SETTINGS_KEY = 'capture_settings';
 
-const TABS = [
-  { id: 'profile', label: 'الملف الشخصي', icon: User },
-  { id: 'notifications', label: 'الإشعارات', icon: Bell },
-  { id: 'security', label: 'الأمان', icon: Shield },
-  { id: 'appearance', label: 'المظهر', icon: Palette },
-  { id: 'language', label: 'اللغة', icon: Globe },
+const TAB_DEFS = [
+  { id: 'profile', labelKey: 'settings.tabs.profile', icon: User },
+  { id: 'notifications', labelKey: 'settings.tabs.notifications', icon: Bell },
+  { id: 'security', labelKey: 'settings.tabs.security', icon: Shield },
+  { id: 'appearance', labelKey: 'settings.tabs.appearance', icon: Palette },
+  { id: 'language', labelKey: 'settings.tabs.language', icon: Globe },
 ];
 
 const NOTIFICATION_META = [
-  { id: 'email', label: 'إشعارات البريد', description: 'إرسال نسخة عبر البريد الإلكتروني', icon: Mail, severity: 'info', defaultEnabled: false },
-  { id: 'critical', label: 'تنبيهات حرجة', description: 'إشعارات فورية للحالات الحرجة', icon: BellRing, severity: 'danger', defaultEnabled: true },
+  { id: 'email', icon: Mail, severity: 'info', defaultEnabled: false },
+  { id: 'critical', icon: BellRing, severity: 'danger', defaultEnabled: true },
 ];
 
 const NOTIFICATION_CATEGORIES = [
@@ -116,6 +118,15 @@ const NOTIFICATION_CATEGORIES = [
   },
 ];
 
+const VISIBLE_NOTIFICATION_META = NOTIFICATION_META.filter((item) => isNotificationPrefWired(item.id));
+
+const VISIBLE_NOTIFICATION_CATEGORIES = NOTIFICATION_CATEGORIES
+  .map((category) => ({
+    ...category,
+    items: category.items.filter((item) => isNotificationPrefWired(item.id)),
+  }))
+  .filter((category) => category.items.length > 0);
+
 const SEVERITY_STYLES = {
   info: {
     badge: 'bg-capture-primary/15 text-capture-glow border-capture-primary/30',
@@ -131,18 +142,12 @@ const SEVERITY_STYLES = {
   },
 };
 
-const SEVERITY_LABELS = {
-  info: 'معلومة',
-  warning: 'تحذير',
-  danger: 'خطر',
-};
-
 function buildDefaultNotifSettings() {
   const settings = {};
-  NOTIFICATION_META.forEach(({ id, defaultEnabled }) => {
+  VISIBLE_NOTIFICATION_META.forEach(({ id, defaultEnabled }) => {
     settings[id] = defaultEnabled;
   });
-  NOTIFICATION_CATEGORIES.forEach((category) => {
+  VISIBLE_NOTIFICATION_CATEGORIES.forEach((category) => {
     category.items.forEach(({ id, defaultEnabled, defaultSound }) => {
       settings[id] = defaultEnabled;
       settings[`${id}_sound`] = defaultSound;
@@ -152,12 +157,6 @@ function buildDefaultNotifSettings() {
 }
 
 const DEFAULT_NOTIF = buildDefaultNotifSettings();
-
-const LANGUAGES = [
-  { id: 'ar', label: 'العربية', flag: '🇲🇦', dir: 'rtl' },
-  { id: 'fr', label: 'Français', flag: '🇫🇷', dir: 'ltr' },
-  { id: 'en', label: 'English', flag: '🇬🇧', dir: 'ltr' },
-];
 
 function loadSettings() {
   try {
@@ -170,6 +169,9 @@ function loadSettings() {
 
 function persistSettings(data) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...loadSettings(), ...data }));
+  if (data.notifications != null) {
+    window.dispatchEvent(new CustomEvent('capture:notification-prefs'));
+  }
 }
 
 function Toggle({ checked, onChange, disabled = false }) {
@@ -189,7 +191,7 @@ function Toggle({ checked, onChange, disabled = false }) {
       <span
         className={cn(
           'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200',
-          checked ? 'start-0.5' : 'start-[22px]',
+          checked ? 'end-0.5' : 'start-0.5',
         )}
       />
     </button>
@@ -198,6 +200,7 @@ function Toggle({ checked, onChange, disabled = false }) {
 
 function NotificationItemRow({
   item,
+  t,
   enabled,
   soundOn,
   soundEnabled,
@@ -207,6 +210,8 @@ function NotificationItemRow({
 }) {
   const Icon = item.icon;
   const severityStyle = SEVERITY_STYLES[item.severity];
+  const label = t(`settings.notifications.items.${item.id}.label`);
+  const description = t(`settings.notifications.items.${item.id}.description`);
 
   return (
     <div className="flex items-start justify-between gap-3 py-3 border-b border-slate-600/10 last:border-0">
@@ -216,20 +221,20 @@ function NotificationItemRow({
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-medium text-slate-200">{item.label}</p>
+            <p className="text-sm font-medium text-slate-200">{label}</p>
             <span className={cn('text-[10px] px-1.5 py-0.5 rounded border', severityStyle.badge)}>
-              {SEVERITY_LABELS[item.severity]}
+              {t(`settings.notifications.severity.${item.severity}`)}
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">{item.description}</p>
+          <p className="text-xs text-slate-500 mt-0.5">{description}</p>
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {showSound && soundEnabled && (
           <button
             type="button"
-            title={soundOn ? 'إيقاف الصوت' : 'تشغيل الصوت'}
-            aria-label={soundOn ? 'إيقاف الصوت' : 'تشغيل الصوت'}
+            title={soundOn ? t('settings.notifications.muteSound') : t('settings.notifications.unmuteSound')}
+            aria-label={soundOn ? t('settings.notifications.muteSound') : t('settings.notifications.unmuteSound')}
             onClick={() => onSoundToggle(!soundOn)}
             className={cn(
               'p-1.5 rounded-lg border transition-colors',
@@ -247,36 +252,46 @@ function NotificationItemRow({
   );
 }
 
-function validateProfile(profile) {
+function validateProfile(profile, t) {
   const errors = {};
-  if (!profile.name?.trim()) errors.name = 'الاسم مطلوب';
-  else if (profile.name.trim().length < 2) errors.name = 'الاسم يجب أن يكون حرفين على الأقل';
-  if (!profile.email?.trim()) errors.email = 'البريد الإلكتروني مطلوب';
+  if (!profile.name?.trim()) errors.name = t('settings.validation.nameRequired');
+  else if (profile.name.trim().length < 2) errors.name = t('settings.validation.nameMin');
+  if (!profile.email?.trim()) errors.email = t('settings.validation.emailRequired');
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email.trim())) {
-    errors.email = 'البريد الإلكتروني غير صالح';
+    errors.email = t('settings.validation.emailInvalid');
   }
   if (profile.phone?.trim() && !/^\+?[\d\s-]{8,}$/.test(profile.phone.trim())) {
-    errors.phone = 'رقم الهاتف غير صالح';
+    errors.phone = t('settings.validation.phoneInvalid');
   }
   return errors;
 }
 
-function validateSecurity(passwords, changing) {
+function validateSecurity(passwords, changing, t) {
   if (!changing) return {};
   const errors = {};
-  if (!passwords.current) errors.current = 'كلمة المرور الحالية مطلوبة';
-  if (!passwords.next) errors.next = 'كلمة المرور الجديدة مطلوبة';
-  else if (passwords.next.length < 6) errors.next = '6 أحرف على الأقل';
-  if (passwords.next !== passwords.confirm) errors.confirm = 'كلمات المرور غير متطابقة';
+  if (!passwords.current) errors.current = t('settings.validation.currentPasswordRequired');
+  if (!passwords.next) errors.next = t('settings.validation.newPasswordRequired');
+  else if (passwords.next.length < 6) errors.next = t('settings.validation.passwordMin');
+  if (passwords.next !== passwords.confirm) errors.confirm = t('settings.validation.passwordMismatch');
   return errors;
 }
 
 export default function Settings() {
   const { user, role, updateProfile } = useAuth();
-  const { mode, isDark, accentColor, presets, setAccentColor, setThemeMode } = useTheme();
+  const { mode, accentColor, presets, setAccentColor, setThemeMode } = useTheme();
   const { isConnected, pushNotification } = useNotificationContext();
+  const { language, setLanguage, t, languages } = useLocale();
 
   const stored = loadSettings();
+
+  const tabs = useMemo(
+    () => TAB_DEFS.map(({ id, labelKey, icon }) => ({
+      id,
+      icon,
+      label: t(labelKey),
+    })),
+    [t, language],
+  );
 
   const [activeTab, setActiveTab] = useState('profile');
   const [profile, setProfile] = useState({
@@ -292,7 +307,6 @@ export default function Settings() {
   const [soundEnabled, setSoundEnabled] = useState(stored.soundEnabled ?? true);
   const [twoFA, setTwoFA] = useState(stored.twoFA ?? false);
   const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
-  const [language, setLanguage] = useState(stored.language ?? LOCALE.fallback);
   const [customAccent, setCustomAccent] = useState(accentColor);
 
   const [fieldErrors, setFieldErrors] = useState({});
@@ -313,14 +327,6 @@ export default function Settings() {
     }));
   }, [user]);
 
-  useEffect(() => {
-    const lang = LANGUAGES.find((l) => l.id === language);
-    if (lang) {
-      document.documentElement.lang = lang.id;
-      document.documentElement.dir = lang.dir;
-    }
-  }, [language]);
-
   const changingPassword = passwords.current || passwords.next || passwords.confirm;
 
   const handleSave = useCallback(async () => {
@@ -329,9 +335,9 @@ export default function Settings() {
 
     let errors = {};
     if (activeTab === 'profile') {
-      errors = validateProfile(profile);
+      errors = validateProfile(profile, t);
     } else if (activeTab === 'security' && changingPassword) {
-      errors = validateSecurity(passwords, true);
+      errors = validateSecurity(passwords, true, t);
     }
 
     if (Object.keys(errors).length > 0) {
@@ -365,30 +371,31 @@ export default function Settings() {
         persistSettings({ language });
       }
 
+      const activeTabLabel = tabs.find((tab) => tab.id === activeTab)?.label ?? activeTab;
       pushNotification?.({
         type: 'success',
-        title: 'تم حفظ الإعدادات',
-        message: `تم تحديث ${TABS.find((t) => t.id === activeTab)?.label} بنجاح`,
+        title: t('settings.saveSuccessTitle'),
+        message: t('settings.saveSuccessMessage', { tab: activeTabLabel }),
       });
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2500);
     } catch (err) {
-      setFieldErrors({ form: err.message || 'تعذّر حفظ الإعدادات' });
+      setFieldErrors({ form: err.message || t('settings.saveFailed') });
     } finally {
       setSaving(false);
     }
   }, [
     activeTab, profile, notifSettings, soundEnabled, twoFA, passwords,
-    changingPassword, customAccent, mode, language, setAccentColor, pushNotification, updateProfile,
+    changingPassword, customAccent, mode, language, setAccentColor, pushNotification, updateProfile, t, tabs,
   ]);
 
   return (
-    <div dir="rtl" className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-100">الإعدادات</h1>
-        <p className="text-sm text-capture-metallic mt-1">إدارة حسابك وتفضيلات النظام</p>
+        <h1 className="text-2xl font-bold text-slate-100">{t('settings.title')}</h1>
+        <p className="text-sm text-capture-metallic mt-1">{t('settings.subtitle')}</p>
         {fieldErrors.form && (
           <p className="mt-2 text-sm text-rose-400">{fieldErrors.form}</p>
         )}
@@ -397,7 +404,7 @@ export default function Settings() {
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Tab navigation */}
         <nav className="lg:w-56 shrink-0 capture-card p-2 space-y-1 h-fit">
-          {TABS.map(({ id, label, icon: Icon }) => (
+          {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
@@ -416,7 +423,7 @@ export default function Settings() {
 
           {/* Connection status */}
           <div className="mt-3 pt-3 border-t border-slate-600/20 px-3">
-            <p className="text-[10px] text-slate-500 mb-1">حالة الاتصال</p>
+            <p className="text-[10px] text-slate-500 mb-1">{t('settings.connection.title')}</p>
             <div className="flex items-center gap-1.5">
               <span className={cn(
                 'w-2 h-2 rounded-full',
@@ -424,7 +431,7 @@ export default function Settings() {
               )}
               />
               <span className="text-xs text-slate-400">
-                {isConnected ? 'WebSocket متصل' : 'غير متصل'}
+                {isConnected ? t('settings.connection.connected') : t('settings.connection.disconnected')}
               </span>
             </div>
           </div>
@@ -436,10 +443,10 @@ export default function Settings() {
           {activeTab === 'profile' && (
             <div className="space-y-6 flex-1">
               <div>
-                <h2 className="font-semibold text-slate-100 text-lg">الملف الشخصي</h2>
+                <h2 className="font-semibold text-slate-100 text-lg">{t('settings.profile.title')}</h2>
                 {role && (
                   <span className="inline-block mt-2 px-2.5 py-0.5 text-[10px] font-medium rounded-full bg-capture-primary/15 text-capture-glow border border-capture-primary/25">
-                    {ROLE_LABELS[role] ?? role}
+                    {t(`roles.${role}`) ?? role}
                   </span>
                 )}
               </div>
@@ -452,7 +459,7 @@ export default function Settings() {
                   <button
                     type="button"
                     className="absolute -bottom-1 -start-1 p-1.5 bg-capture-card rounded-full border border-slate-600/30 hover:shadow-glow-sm transition-all"
-                    aria-label="تغيير الصورة"
+                    aria-label={t('settings.profile.changePhoto')}
                   >
                     <Camera className="w-3.5 h-3.5 text-capture-metallic" />
                   </button>
@@ -466,7 +473,7 @@ export default function Settings() {
               <div className="grid sm:grid-cols-2 gap-4">
                 <Input
                   id="profile-name"
-                  label="الاسم"
+                  label={t('settings.profile.name')}
                   value={profile.name}
                   onChange={(e) => setProfile({ ...profile, name: e.target.value })}
                   error={fieldErrors.name}
@@ -474,7 +481,7 @@ export default function Settings() {
                 />
                 <Input
                   id="profile-email"
-                  label="البريد الإلكتروني"
+                  label={t('settings.profile.email')}
                   type="email"
                   value={profile.email}
                   onChange={(e) => setProfile({ ...profile, email: e.target.value })}
@@ -483,7 +490,7 @@ export default function Settings() {
                 />
                 <Input
                   id="profile-phone"
-                  label="الهاتف"
+                  label={t('settings.profile.phone')}
                   dir="ltr"
                   inputMode="tel"
                   value={profile.phone}
@@ -494,7 +501,7 @@ export default function Settings() {
                 />
                 <Input
                   id="profile-company"
-                  label="الشركة"
+                  label={t('settings.profile.company')}
                   value={profile.company}
                   onChange={(e) => setProfile({ ...profile, company: e.target.value })}
                 />
@@ -505,7 +512,7 @@ export default function Settings() {
           {/* ── Notifications ── */}
           {activeTab === 'notifications' && (
             <div className="space-y-4 flex-1">
-              <h2 className="font-semibold text-slate-100 text-lg">إعدادات الإشعارات</h2>
+              <h2 className="font-semibold text-slate-100 text-lg">{t('settings.notifications.title')}</h2>
 
               {/* Sound toggle */}
               <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-capture-bg/40 border border-slate-600/20">
@@ -514,19 +521,20 @@ export default function Settings() {
                     ? <Volume2 className="w-5 h-5 text-capture-glow" />
                     : <VolumeX className="w-5 h-5 text-slate-500" />}
                   <div>
-                    <p className="text-sm font-medium text-slate-200">صوت التنبيهات</p>
-                    <p className="text-xs text-slate-500">تشغيل صوت للتنبيهات الحرجة</p>
+                    <p className="text-sm font-medium text-slate-200">{t('settings.notifications.sound')}</p>
+                    <p className="text-xs text-slate-500">{t('settings.notifications.soundDesc')}</p>
                   </div>
                 </div>
                 <Toggle checked={soundEnabled} onChange={setSoundEnabled} />
               </div>
 
               <div className="rounded-xl bg-capture-bg/40 border border-slate-600/20 px-4">
-                <h3 className="text-sm font-semibold text-slate-300 pt-4 pb-1">إعدادات عامة</h3>
-                {NOTIFICATION_META.map((item) => (
+                <h3 className="text-sm font-semibold text-slate-300 pt-4 pb-1">{t('settings.notifications.general')}</h3>
+                {VISIBLE_NOTIFICATION_META.map((item) => (
                   <NotificationItemRow
                     key={item.id}
                     item={item}
+                    t={t}
                     enabled={notifSettings[item.id]}
                     soundOn={false}
                     soundEnabled={soundEnabled}
@@ -537,16 +545,17 @@ export default function Settings() {
                 ))}
               </div>
 
-              {NOTIFICATION_CATEGORIES.map((category) => (
+              {VISIBLE_NOTIFICATION_CATEGORIES.map((category) => (
                 <div
                   key={category.id}
                   className="rounded-xl bg-capture-bg/40 border border-slate-600/20 px-4"
                 >
-                  <h3 className="text-sm font-semibold text-slate-300 pt-4 pb-1">{category.title}</h3>
+                  <h3 className="text-sm font-semibold text-slate-300 pt-4 pb-1">{t(`settings.notifications.categories.${category.id}`)}</h3>
                   {category.items.map((item) => (
                     <NotificationItemRow
                       key={item.id}
                       item={item}
+                      t={t}
                       enabled={notifSettings[item.id] ?? item.defaultEnabled}
                       soundOn={notifSettings[`${item.id}_sound`] ?? item.defaultSound}
                       soundEnabled={soundEnabled}
@@ -562,12 +571,12 @@ export default function Settings() {
           {/* ── Security ── */}
           {activeTab === 'security' && (
             <div className="space-y-6 flex-1">
-              <h2 className="font-semibold text-slate-100 text-lg">الأمان</h2>
+              <h2 className="font-semibold text-slate-100 text-lg">{t('settings.security.title')}</h2>
 
               <div className="flex items-center justify-between py-4 px-4 rounded-xl bg-capture-bg/40 border border-slate-600/20">
                 <div>
-                  <p className="text-sm font-medium text-slate-200">المصادقة الثنائية (2FA)</p>
-                  <p className="text-xs text-slate-500 mt-0.5">طبقة أمان إضافية عبر SMS أو تطبيق</p>
+                  <p className="text-sm font-medium text-slate-200">{t('settings.security.twoFA')}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{t('settings.security.twoFADesc')}</p>
                 </div>
                 <Toggle checked={twoFA} onChange={setTwoFA} />
               </div>
@@ -575,11 +584,11 @@ export default function Settings() {
               <div className="space-y-4">
                 <h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">
                   <Lock className="w-4 h-4 text-capture-metallic" />
-                  تغيير كلمة المرور
+                  {t('settings.security.changePassword')}
                 </h3>
                 <Input
                   id="pwd-current"
-                  label="كلمة المرور الحالية"
+                  label={t('settings.security.currentPassword')}
                   type="password"
                   value={passwords.current}
                   onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
@@ -588,17 +597,17 @@ export default function Settings() {
                 />
                 <Input
                   id="pwd-next"
-                  label="كلمة المرور الجديدة"
+                  label={t('settings.security.newPassword')}
                   type="password"
                   value={passwords.next}
                   onChange={(e) => setPasswords({ ...passwords, next: e.target.value })}
                   error={fieldErrors.next}
-                  hint="6 أحرف على الأقل"
+                  hint={t('settings.security.passwordHint')}
                   autoComplete="new-password"
                 />
                 <Input
                   id="pwd-confirm"
-                  label="تأكيد كلمة المرور"
+                  label={t('settings.security.confirmPassword')}
                   type="password"
                   value={passwords.confirm}
                   onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
@@ -612,15 +621,15 @@ export default function Settings() {
           {/* ── Appearance ── */}
           {activeTab === 'appearance' && (
             <div className="space-y-6 flex-1">
-              <h2 className="font-semibold text-slate-100 text-lg">المظهر</h2>
+              <h2 className="font-semibold text-slate-100 text-lg">{t('settings.appearance.title')}</h2>
 
               <div>
-                <p className="text-sm font-medium text-slate-300 mb-3">وضع العرض</p>
+                <p className="text-sm font-medium text-slate-300 mb-3">{t('settings.appearance.themeMode')}</p>
                 <div className="flex gap-3">
                   {[
-                    { id: 'dark', label: 'داكن', icon: Moon },
-                    { id: 'light', label: 'فاتح', icon: Sun },
-                  ].map(({ id, label, icon: Icon }) => (
+                    { id: 'dark', labelKey: 'settings.appearance.dark', icon: Moon },
+                    { id: 'light', labelKey: 'settings.appearance.light', icon: Sun },
+                  ].map(({ id, labelKey, icon: Icon }) => (
                     <button
                       key={id}
                       type="button"
@@ -633,16 +642,16 @@ export default function Settings() {
                       )}
                     >
                       <Icon className="w-4 h-4" />
-                      {label}
+                      {t(labelKey)}
                     </button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <p className="text-sm font-medium text-slate-300 mb-3">ألوان جاهزة</p>
+                <p className="text-sm font-medium text-slate-300 mb-3">{t('settings.appearance.presets')}</p>
                 <div className="flex flex-wrap gap-2">
-                  {presets.map(({ id, label, value }) => (
+                  {presets.map(({ id, value }) => (
                     <button
                       key={id}
                       type="button"
@@ -658,14 +667,14 @@ export default function Settings() {
                         className="w-4 h-4 rounded-full border border-white/20"
                         style={{ background: value }}
                       />
-                      {label}
+                      {t(`settings.appearance.presetColors.${id}`)}
                     </button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <p className="text-sm font-medium text-slate-300 mb-3">لون مخصص</p>
+                <p className="text-sm font-medium text-slate-300 mb-3">{t('settings.appearance.customColor')}</p>
                 <div className="flex items-center gap-4">
                   <input
                     type="color"
@@ -676,7 +685,7 @@ export default function Settings() {
                   <div>
                     <p className="text-sm font-mono text-slate-300">{customAccent}</p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      الافتراضي: {COLORS.primary}
+                      {t('settings.appearance.defaultColor')}: {COLORS.primary}
                     </p>
                   </div>
                   {/* Preview swatch */}
@@ -692,10 +701,10 @@ export default function Settings() {
           {/* ── Language ── */}
           {activeTab === 'language' && (
             <div className="space-y-4 flex-1">
-              <h2 className="font-semibold text-slate-100 text-lg">اللغة</h2>
-              <p className="text-xs text-slate-500 mb-2">اختر لغة واجهة النظام</p>
+              <h2 className="font-semibold text-slate-100 text-lg">{t('settings.language.title')}</h2>
+              <p className="text-xs text-slate-500 mb-2">{t('settings.language.subtitle')}</p>
 
-              {LANGUAGES.map(({ id, label, flag }) => (
+              {languages.map(({ id, label, flag }) => (
                 <button
                   key={id}
                   type="button"
@@ -735,13 +744,13 @@ export default function Settings() {
                 saveSuccess && '!bg-capture-success !border-capture-success/50 shadow-[0_0_20px_rgba(16,185,129,0.4)]',
               )}
             >
-              {saving ? 'جاري الحفظ...' : saveSuccess ? 'تم الحفظ!' : 'حفظ التغييرات'}
+              {saving ? t('common.saving') : saveSuccess ? t('common.saved') : t('common.save')}
             </Button>
 
             {saveSuccess && (
               <span className="text-sm text-capture-success animate-[fade-in_0.3s_ease-out] flex items-center gap-1.5">
                 <CheckCircle className="w-4 h-4" />
-                تم حفظ الإعدادات بنجاح
+                {t('settings.saveSuccessTitle')}
               </span>
             )}
           </div>
