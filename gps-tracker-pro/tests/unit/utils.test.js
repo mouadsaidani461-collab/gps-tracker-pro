@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { formatNumber, toWesternNumerals } from '../../src/utils/formatters';
 import { hasPermission, resolveRoleFromTraccarUser, ROLES } from '../../src/utils/authRoles';
 import { detectStops, calculateDistance } from '../../src/utils/tripUtils';
-import { validateImei, validateMoroccoPhone } from '../../src/utils/validation';
-import { ensureReportArray, mapTripsToRows, buildDevicesLookup } from '../../src/services/reportMapper';
+import { validateImei, validateMoroccoPhone, validatePassword, MIN_PASSWORD_LENGTH } from '../../src/utils/validation';
+import { ensureReportArray, mapTripsToRows, mapStopsToRows, buildDevicesLookup } from '../../src/services/reportMapper';
 
 describe('ensureReportArray', () => {
   it('returns empty array for non-array API payloads', () => {
@@ -22,6 +22,22 @@ describe('ensureReportArray', () => {
     }], lookup);
     expect(rows).toHaveLength(1);
     expect(rows[0].distance).toBeCloseTo(12);
+  });
+
+  it('maps stop rows with duration', () => {
+    const lookup = buildDevicesLookup([{ id: '1', deviceId: 1, plate: 'TN-1', name: 'Car' }]);
+    const rows = mapStopsToRows([{
+      deviceId: 1,
+      startTime: '2026-06-01T10:00:00Z',
+      endTime: '2026-06-01T10:30:00Z',
+      duration: 1800000,
+      address: 'Casablanca',
+    }], lookup, 'en');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].vehicle).toBe('TN-1');
+    expect(rows[0].duration).toBeCloseTo(0.5);
+    expect(rows[0].address).toBe('Casablanca');
+    expect(rows[0].category).toBe('stops');
   });
 });
 
@@ -99,5 +115,10 @@ describe('validation', () => {
   it('rejects invalid Morocco phone (locale-aware)', () => {
     expect(validateMoroccoPhone('0612345678', { language: 'en' })).toMatch(/invalid/i);
     expect(validateMoroccoPhone('0612345678', { language: 'ar' })).toMatch(/غير صالح/);
+  });
+  it('enforces shared minimum password length', () => {
+    expect(MIN_PASSWORD_LENGTH).toBe(8);
+    expect(validatePassword('short', { language: 'en' })).toMatch(/8/);
+    expect(validatePassword('longenough', { language: 'en' })).toBeNull();
   });
 });
