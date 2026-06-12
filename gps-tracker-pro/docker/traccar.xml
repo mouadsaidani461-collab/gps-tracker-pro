@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
+<properties>
+
+    <!-- Dev Traccar config (docker-compose.yml) -->
+    <!-- Default: embedded H2 in traccar-data volume — no external DB required. -->
+    <!-- MySQL: set MYSQL_HOST (+ MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD) in .env -->
+    <!--   and run: docker compose --profile mysql up -->
+    <!--   traccar-dev-entrypoint.sh maps MYSQL_* → DATABASE_* (CONFIG_USE_ENVIRONMENT_VARIABLES). -->
+    <!-- Admin user is created by traccar-init — never hardcode credentials here. -->
+
+    <entry key='database.driver'>org.h2.Driver</entry>
+    <entry key='database.url'>jdbc:h2:./data/database</entry>
+    <entry key='database.user'>sa</entry>
+    <entry key='database.password' />
+
+    <entry key='web.port'>8082</entry>
+
+    <!-- Overridden by WEB_REGISTRATION env in docker-compose.yml -->
+    <entry key='web.registration'>false</entry>
+
+    <!-- Docker: log to stdout (no log files in container) -->
+    <entry key='logger.console'>true</entry>
+    <entry key='logger.level'>info</entry>
+
+</properties>
