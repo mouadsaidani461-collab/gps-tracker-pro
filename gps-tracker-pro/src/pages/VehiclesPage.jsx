@@ -2,18 +2,14 @@ import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutGrid, List, Search, SlidersHorizontal, Download,
-  MapPin, Bell, CheckSquare, Square, X, Fuel, Gauge,
+  MapPin, CheckSquare, Square, X, Fuel, Gauge,
   Battery, Signal, Route, Clock, Phone, AlertTriangle,
 } from 'lucide-react';
 import { useVehicles } from '../hooks/useVehicles';
-import {
-  VEHICLE_FILTERS, VEHICLE_TYPE_LABELS, VEHICLE_TYPES,
-  VEHICLE_STATUS_LABELS,
-} from '../utils/constants';
-import {
-  formatSpeed, formatFuel, formatDistance,
-  formatPlate, formatRelativeTime, formatOdometer, formatNumber, NUMERIC_DISPLAY_CLASS,
-} from '../utils/formatters';
+import { formatPlate, formatNumber, NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
+import { useLocale } from '../context/LocaleContext';
+import { useVehicleFilters, useVehicleStatusLabels, useVehicleTypeLabels } from '../hooks/useVehicleI18n';
+import { useFormatters } from '../hooks/useFormatters';
 import { formatVehicleRowForExport, rowsToCsv, downloadBlob, exportFilename } from '../utils/exportUtils';
 import VehicleCard from '../components/dashboard/VehicleCard';
 import { StatusBadge } from '../components/ui/Badge';
@@ -24,11 +20,6 @@ function cn(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
-const TYPE_OPTIONS = Object.entries(VEHICLE_TYPES).map(([, value]) => ({
-  value,
-  label: VEHICLE_TYPE_LABELS[value],
-}));
-
 function getVehicleStats(vehicle) {
   return {
     odometerKm: vehicle.odometer ? vehicle.odometer / 1000 : 0,
@@ -36,6 +27,10 @@ function getVehicleStats(vehicle) {
 }
 
 function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
+  const { t } = useLocale();
+  const {
+    formatRelativeTime, formatSpeed, formatFuel, formatDistance, formatOdometer,
+  } = useFormatters();
   if (!vehicle) return null;
 
   const { odometerKm } = getVehicleStats(vehicle);
@@ -49,9 +44,9 @@ function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
       size="lg"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>إغلاق</Button>
+          <Button variant="secondary" onClick={onClose}>{t('common.close')}</Button>
           <Button variant="primary" leftIcon={<MapPin className="w-4 h-4" />} onClick={() => { onTrackMap(vehicle); onClose(); }}>
-            تتبع على الخريطة
+            {t('vehicles.trackOnMap')}
           </Button>
         </>
       }
@@ -60,25 +55,25 @@ function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
         <div className="flex items-center gap-3">
           <StatusBadge status={vehicle.status} />
           <span className="text-xs text-slate-500">
-            آخر تحديث: {formatRelativeTime(vehicle.lastUpdate)}
+            {t('vehicles.lastUpdateShort')}: {formatRelativeTime(vehicle.lastUpdate)}
           </span>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-4">
           {[
-            { icon: Gauge, label: 'السرعة', value: formatSpeed(vehicle.speed), numeric: true },
-            { icon: Fuel, label: 'الوقود', value: formatFuel(vehicle.fuel), numeric: true },
-            { icon: Battery, label: 'البطارية', value: formatFuel(vehicle.battery), numeric: true },
-            { icon: Signal, label: 'الإشارة', value: formatFuel(vehicle.signal), numeric: true },
-            { icon: Route, label: 'عداد المسافة', value: formatDistance(odometerKm), numeric: true },
-            { icon: Clock, label: 'آخر تحديث', value: formatRelativeTime(vehicle.lastUpdate), numeric: true },
-            { icon: MapPin, label: 'الموقع', value: vehicle.location?.address ?? '—' },
-            { icon: Phone, label: 'السائق', value: vehicle.driver },
-          ].map(({ icon: Icon, label, value, numeric }) => (
-            <div key={label} className="flex items-start gap-3 p-3 rounded-lg bg-capture-bg/40 border border-slate-600/20">
+            { icon: Gauge, labelKey: 'vehicles.fields.speed', value: formatSpeed(vehicle.speed), numeric: true },
+            { icon: Fuel, labelKey: 'vehicles.fields.fuel', value: formatFuel(vehicle.fuel), numeric: true },
+            { icon: Battery, labelKey: 'vehicles.fields.battery', value: formatFuel(vehicle.battery), numeric: true },
+            { icon: Signal, labelKey: 'vehicles.fields.signal', value: formatFuel(vehicle.signal), numeric: true },
+            { icon: Route, labelKey: 'vehicles.fields.odometer', value: formatDistance(odometerKm), numeric: true },
+            { icon: Clock, labelKey: 'vehicles.lastUpdateShort', value: formatRelativeTime(vehicle.lastUpdate), numeric: true },
+            { icon: MapPin, labelKey: 'vehicles.fields.location', value: vehicle.location?.address ?? '—' },
+            { icon: Phone, labelKey: 'vehicles.fields.driver', value: vehicle.driver },
+          ].map(({ icon: Icon, labelKey, value, numeric }) => (
+            <div key={labelKey} className="flex items-start gap-3 p-3 rounded-lg bg-capture-bg/40 border border-slate-600/20">
               <Icon className="w-4 h-4 text-capture-glow shrink-0 mt-0.5" />
               <div>
-                <p className="text-[10px] text-slate-500">{label}</p>
+                <p className="text-[10px] text-slate-500">{t(labelKey)}</p>
                 {numeric ? (
                   <p className="text-sm text-slate-200">
                     <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{value}</span>
@@ -92,7 +87,7 @@ function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
         </div>
 
         <div className="p-3 rounded-lg bg-capture-bg/40 border border-slate-600/20">
-          <p className="text-[10px] text-slate-500 mb-1">عداد المسافة</p>
+          <p className="text-[10px] text-slate-500 mb-1">{t('vehicles.fields.odometer')}</p>
           <p className="text-sm text-slate-200">
             <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatOdometer(vehicle.odometer)}</span>
           </p>
@@ -100,11 +95,11 @@ function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
 
         {vehicle.geofence && (
           <div className="p-3 rounded-lg bg-capture-bg/40 border border-slate-600/20">
-            <p className="text-[10px] text-slate-500 mb-1">المنطقة الجغرافية</p>
+            <p className="text-[10px] text-slate-500 mb-1">{t('vehicles.geofenceZone')}</p>
             <p className="text-sm text-slate-200">
               {vehicle.geofence.name}
               <span className={cn('ms-2 text-xs', vehicle.geofence.inside ? 'text-capture-success' : 'text-capture-danger')}>
-                ({vehicle.geofence.inside ? 'داخل' : 'خارج'})
+                ({vehicle.geofence.inside ? t('common.inside') : t('common.outside')})
               </span>
             </p>
           </div>
@@ -114,7 +109,7 @@ function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
           <div>
             <p className="text-sm font-medium text-slate-300 mb-2 flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4 text-capture-warning" />
-              التنبيهات (
+              {t('vehicles.alertsTitle')} (
               <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
                 {formatNumber(vehicle.alerts.length, { maximumFractionDigits: 0 })}
               </span>
@@ -137,6 +132,11 @@ function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
 export default function VehiclesPage() {
   const navigate = useNavigate();
   const { vehicles, selectVehicle } = useVehicles();
+  const { t, language } = useLocale();
+  const { formatSpeed, formatFuel } = useFormatters();
+  const vehicleFilters = useVehicleFilters();
+  const statusLabels = useVehicleStatusLabels();
+  const typeOptions = useVehicleTypeLabels();
 
   const [viewMode, setViewMode] = useState('grid');
   const [showFilters, setShowFilters] = useState(false);
@@ -186,21 +186,23 @@ export default function VehiclesPage() {
 
   const handleBulkExport = useCallback(() => {
     const selected = vehicles.filter((v) => selectedIds.has(v.id));
-    const headers = ['اللوحة', 'الاسم', 'السائق', 'الحالة', 'السرعة', 'الوقود'];
-    const rows = selected.map((v) => formatVehicleRowForExport(v, VEHICLE_STATUS_LABELS[v.status]));
+    const headers = [
+      t('vehicles.exportHeaders.plate'),
+      t('vehicles.exportHeaders.name'),
+      t('vehicles.exportHeaders.driver'),
+      t('vehicles.exportHeaders.status'),
+      t('vehicles.exportHeaders.speed'),
+      t('vehicles.exportHeaders.fuel'),
+    ];
+    const rows = selected.map((v) => formatVehicleRowForExport(v, statusLabels[v.status], language));
     downloadBlob(
       rowsToCsv(headers, rows),
       'text/csv;charset=utf-8;',
       exportFilename('vehicles', new Date().toISOString().slice(0, 10), new Date().toISOString().slice(0, 10), 'csv'),
     );
-    setBulkMsg(`تم تصدير ${formatNumber(selected.length, { maximumFractionDigits: 0 })} مركبة`);
+    setBulkMsg(t('vehicles.exportedCount', { count: formatNumber(selected.length, { maximumFractionDigits: 0 }) }));
     setTimeout(() => setBulkMsg(null), 2500);
-  }, [vehicles, selectedIds]);
-
-  const handleBulkAlert = useCallback(() => {
-    setBulkMsg(`تم إرسال تنبيه لـ ${formatNumber(selectedIds.size, { maximumFractionDigits: 0 })} مركبة`);
-    setTimeout(() => setBulkMsg(null), 2500);
-  }, [selectedIds]);
+  }, [vehicles, selectedIds, statusLabels, t, language]);
 
   const handleTrackMap = (vehicle) => {
     selectVehicle(vehicle.id);
@@ -208,16 +210,16 @@ export default function VehiclesPage() {
   };
 
   return (
-    <div dir="rtl" className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">المركبات</h1>
+          <h1 className="text-2xl font-bold text-slate-100">{t('vehicles.pageTitle')}</h1>
           <p className="text-sm text-capture-metallic mt-1">
-            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(filtered.length, { maximumFractionDigits: 0 })}</span>
-            {' '}من{' '}
-            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(vehicles.length, { maximumFractionDigits: 0 })}</span>
-            {' '}مركبة
+            {t('vehicles.countOf', {
+              shown: formatNumber(filtered.length, { maximumFractionDigits: 0 }),
+              total: formatNumber(vehicles.length, { maximumFractionDigits: 0 }),
+            })}
           </p>
         </div>
 
@@ -231,7 +233,7 @@ export default function VehiclesPage() {
                 'p-2.5 transition-colors',
                 viewMode === 'grid' ? 'bg-capture-primary/20 text-capture-glow' : 'text-slate-400 hover:bg-capture-surface/60',
               )}
-              aria-label="عرض شبكي"
+              aria-label={t('vehicles.viewGrid')}
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
@@ -242,7 +244,7 @@ export default function VehiclesPage() {
                 'p-2.5 transition-colors',
                 viewMode === 'list' ? 'bg-capture-primary/20 text-capture-glow' : 'text-slate-400 hover:bg-capture-surface/60',
               )}
-              aria-label="عرض قائمة"
+              aria-label={t('vehicles.viewList')}
             >
               <List className="w-4 h-4" />
             </button>
@@ -254,7 +256,7 @@ export default function VehiclesPage() {
             leftIcon={<SlidersHorizontal className="w-4 h-4" />}
             onClick={() => setShowFilters((p) => !p)}
           >
-            فلاتر
+            {t('common.filters')}
           </Button>
         </div>
       </div>
@@ -267,7 +269,7 @@ export default function VehiclesPage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="بحث بالاسم، اللوحة، السائق..."
+            placeholder={t('vehicles.searchPlaceholderPage')}
             className="w-full ps-10 pe-4 py-2.5 rounded-lg text-sm bg-capture-bg/60 border border-slate-600/30 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:shadow-glow-sm focus:border-capture-primary/50"
           />
         </div>
@@ -275,33 +277,33 @@ export default function VehiclesPage() {
         {showFilters && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-slate-600/20 animate-[fade-in_0.2s_ease-out]">
             <div>
-              <label className="text-xs text-slate-400 mb-1.5 block">الحالة</label>
+              <label className="text-xs text-slate-400 mb-1.5 block">{t('vehicles.filterStatus')}</label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg text-sm bg-capture-bg/60 border border-slate-600/30 text-slate-200 focus:outline-none"
               >
-                {VEHICLE_FILTERS.map(({ value, label }) => (
+                {vehicleFilters.map(({ value, label }) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="text-xs text-slate-400 mb-1.5 block">النوع</label>
+              <label className="text-xs text-slate-400 mb-1.5 block">{t('vehicles.filterType')}</label>
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg text-sm bg-capture-bg/60 border border-slate-600/30 text-slate-200 focus:outline-none"
               >
-                <option value="all">الكل</option>
-                {TYPE_OPTIONS.map(({ value, label }) => (
+                <option value="all">{t('common.all')}</option>
+                {typeOptions.map(({ value, label }) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
             </div>
             <div>
               <label className="text-xs text-slate-400 mb-1.5 block">
-                الحد الأدنى للوقود:{' '}
+                {t('vehicles.minFuel')}:{' '}
                 <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
                   {formatNumber(minFuel, { maximumFractionDigits: 0 })}
                 </span>
@@ -324,7 +326,7 @@ export default function VehiclesPage() {
                   onChange={(e) => setAlertsOnly(e.target.checked)}
                   className="accent-capture-primary"
                 />
-                <span className="text-sm text-slate-300">تنبيهات فقط</span>
+                <span className="text-sm text-slate-300">{t('vehicles.alertsOnly')}</span>
               </label>
             </div>
           </div>
@@ -342,15 +344,12 @@ export default function VehiclesPage() {
               <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
                 {formatNumber(selectedIds.size, { maximumFractionDigits: 0 })}
               </span>
-              {' '}محدد
+              {' '}{t('vehicles.bulkSelected')}
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" size="sm" leftIcon={<Download className="w-4 h-4" />} onClick={handleBulkExport}>
-              تصدير
-            </Button>
-            <Button variant="secondary" size="sm" leftIcon={<Bell className="w-4 h-4" />} onClick={handleBulkAlert}>
-              إرسال تنبيه
+              {t('common.export')}
             </Button>
           </div>
         </div>
@@ -372,7 +371,7 @@ export default function VehiclesPage() {
           {selectedIds.size === filtered.length
             ? <CheckSquare className="w-4 h-4 text-capture-glow" />
             : <Square className="w-4 h-4" />}
-          {selectedIds.size === filtered.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+          {selectedIds.size === filtered.length ? t('vehicles.deselectAll') : t('common.selectAll')}
         </button>
       )}
 
@@ -408,12 +407,12 @@ export default function VehiclesPage() {
               <thead>
                 <tr className="border-b border-slate-600/20 bg-capture-bg/40">
                   <th className="w-10 px-3 py-3" />
-                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">المركبة</th>
-                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">السائق</th>
-                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">الحالة</th>
-                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">السرعة</th>
-                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">الوقود</th>
-                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">الموقع</th>
+                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.vehicle')}</th>
+                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.driver')}</th>
+                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.status')}</th>
+                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.speed')}</th>
+                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.fuel')}</th>
+                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.location')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -460,7 +459,7 @@ export default function VehiclesPage() {
 
       {filtered.length === 0 && (
         <div className="capture-card py-16 text-center">
-          <p className="text-slate-500">لا توجد مركبات تطابق الفلاتر</p>
+          <p className="text-slate-500">{t('vehicles.noMatch')}</p>
         </div>
       )}
 
