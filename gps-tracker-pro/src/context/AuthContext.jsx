@@ -12,39 +12,25 @@ import {
   useMemo,
 } from 'react';
 import { sessionApi, userApi } from '../services/traccarApi';
+import { UNAUTHORIZED_EVENT } from '../services/api';
+import { translate, getStoredLanguage } from '../i18n';
 import { APP_NAME } from '../utils/constants';
 
-export const ROLES = {
-  ADMIN: 'admin',
-  OPERATOR: 'operator',
-  VIEWER: 'viewer',
-};
+import {
+  ROLES,
+  ROLE_LABELS,
+  hasPermission,
+  resolveRoleFromTraccarUser,
+} from '../utils/authRoles';
 
-export const ROLE_LABELS = {
-  admin: 'مدير',
-  operator: 'مشغّل',
-  viewer: 'مشاهد',
-};
-
-const ROLE_PERMISSIONS = {
-  admin: ['*'],
-  operator: [
-    'dashboard:read',
-    'vehicles:read',
-    'vehicles:write',
-    'map:read',
-    'reports:read',
-    'notifications:read',
-  ],
-  viewer: ['dashboard:read', 'vehicles:read', 'map:read', 'reports:read'],
-};
+export { ROLES, ROLE_LABELS } from '../utils/authRoles';
 
 const SESSION_IDLE_TIMEOUT = 30 * 60 * 1000;
 
 const AuthContext = createContext(null);
 
 function mapTraccarUser(user) {
-  const role = user.administrator ? ROLES.ADMIN : ROLES.OPERATOR;
+  const role = resolveRoleFromTraccarUser(user);
   return {
     id: String(user.id),
     name: user.name,
@@ -110,6 +96,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    const onUnauthorized = () => logout('expired');
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+  }, [logout]);
+
+  useEffect(() => {
     if (!user) return undefined;
 
     const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
@@ -136,9 +128,10 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return { success: true };
     } catch (err) {
+      const lang = getStoredLanguage();
       const errMsg = err.status === 401
-        ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
-        : (err.message || 'تعذّر تسجيل الدخول');
+        ? translate(lang, 'login.invalidCredentials')
+        : (err.message || translate(lang, 'login.failed'));
       setError(errMsg);
       setLoading(false);
       return { success: false, error: errMsg };
@@ -155,11 +148,7 @@ export function AuthProvider({ children }) {
   const isAdmin = useCallback(() => hasRole(ROLES.ADMIN), [hasRole]);
 
   const can = useCallback(
-    (permission) => {
-      if (!user?.role) return false;
-      const perms = ROLE_PERMISSIONS[user.role] ?? [];
-      return perms.includes('*') || perms.includes(permission);
-    },
+    (permission) => hasPermission(user?.role, permission),
     [user],
   );
 
@@ -172,7 +161,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const updateProfile = useCallback(async ({ name, email, phone, password }) => {
-    if (!user?.id) throw new Error('لا توجد جلسة نشطة');
+    if (!user?.id) throw new Error(translate(getStoredLanguage(), 'auth.noActiveSession'));
 
     const current = await sessionApi.get();
     const payload = {
@@ -186,7 +175,7 @@ export function AuthProvider({ children }) {
     const updated = await userApi.update(Number(user.id), payload);
     setUser(mapTraccarUser(updated));
     return updated;
-  }, [user?.id]);
+  }, [user]);
 
   const value = useMemo(
     () => ({
