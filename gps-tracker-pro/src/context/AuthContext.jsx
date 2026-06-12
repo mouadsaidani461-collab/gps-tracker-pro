@@ -16,12 +16,8 @@ import { UNAUTHORIZED_EVENT } from '../services/api';
 import { translate, getStoredLanguage } from '../i18n';
 import { APP_NAME } from '../utils/constants';
 
-import {
-  ROLES,
-  ROLE_LABELS,
-  hasPermission,
-  resolveRoleFromTraccarUser,
-} from '../utils/authRoles';
+import { ROLES, ROLE_LABELS, hasPermission, resolveRoleFromTraccarUser } from '../utils/authRoles';
+import { parseTwoFactorEnabled } from '../utils/userAttributes';
 
 export { ROLES, ROLE_LABELS } from '../utils/authRoles';
 
@@ -41,6 +37,9 @@ function mapTraccarUser(user) {
     avatar: null,
     readonly: user.readonly,
     administrator: user.administrator,
+    totpKey: user.totpKey ?? null,
+    attributes: user.attributes ?? {},
+    twoFactorEnabled: parseTwoFactorEnabled(user),
   };
 }
 
@@ -177,6 +176,13 @@ export function AuthProvider({ children }) {
     return updated;
   }, [user]);
 
+  const updateUserAttribute = useCallback(async (key, value) => {
+    if (!user?.id) throw new Error(translate(getStoredLanguage(), 'auth.noActiveSession'));
+    const updated = await userApi.updateAttribute(Number(user.id), key, value);
+    setUser(mapTraccarUser(updated));
+    return updated;
+  }, [user]);
+
   const value = useMemo(
     () => ({
       user,
@@ -190,6 +196,7 @@ export function AuthProvider({ children }) {
       logout: () => logout('manual'),
       refreshUser,
       updateProfile,
+      updateUserAttribute,
       refreshToken: () => true,
       clearSessionExpired,
       hasRole,
@@ -207,6 +214,7 @@ export function AuthProvider({ children }) {
       logout,
       refreshUser,
       updateProfile,
+      updateUserAttribute,
       clearSessionExpired,
       hasRole,
       isAdmin,

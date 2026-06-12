@@ -20,6 +20,7 @@ import { NUMERIC_DISPLAY_CLASS, toWesternNumerals } from '../utils/formatters';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import { isNotificationPrefWired } from '../utils/notificationPreferences';
+import { isTwoFactorLocked, USER_ATTR_CAPTURE_2FA } from '../utils/userAttributes';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -181,7 +182,7 @@ function Toggle({ checked, onChange, disabled = false }) {
       role="switch"
       aria-checked={checked}
       disabled={disabled}
-      onClick={() => onChange(!checked)}
+      onClick={() => { if (!disabled) onChange(!checked); }}
       className={cn(
         'relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0',
         checked ? 'bg-capture-primary shadow-glow-sm' : 'bg-slate-600/50',
@@ -277,7 +278,7 @@ function validateSecurity(passwords, changing, t) {
 }
 
 export default function Settings() {
-  const { user, role, updateProfile } = useAuth();
+  const { user, role, updateProfile, updateUserAttribute } = useAuth();
   const { mode, accentColor, presets, setAccentColor, setThemeMode } = useTheme();
   const { isConnected, pushNotification } = useNotificationContext();
   const { language, setLanguage, t, languages } = useLocale();
@@ -305,7 +306,9 @@ export default function Settings() {
     ...stored.notifications,
   });
   const [soundEnabled, setSoundEnabled] = useState(stored.soundEnabled ?? true);
-  const [twoFA, setTwoFA] = useState(stored.twoFA ?? false);
+  const [twoFA, setTwoFA] = useState(() => user?.twoFactorEnabled ?? false);
+  const [twoFALoading, setTwoFALoading] = useState(false);
+  const [twoFAError, setTwoFAError] = useState(null);
   const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
   const [customAccent, setCustomAccent] = useState(accentColor);
 
@@ -325,7 +328,26 @@ export default function Settings() {
       email: user.email ?? prev.email,
       phone: user.phone ?? prev.phone,
     }));
+    setTwoFA(user.twoFactorEnabled ?? false);
   }, [user]);
+
+  const twoFALocked = isTwoFactorLocked(user);
+
+  const handleTwoFAToggle = useCallback(async (next) => {
+    if (twoFALocked || twoFALoading) return;
+    setTwoFALoading(true);
+    setTwoFAError(null);
+    const previous = twoFA;
+    setTwoFA(next);
+    try {
+      await updateUserAttribute(USER_ATTR_CAPTURE_2FA, next);
+    } catch (err) {
+      setTwoFA(previous);
+      setTwoFAError(err.message || t('settings.security.twoFAFailed'));
+    } finally {
+      setTwoFALoading(false);
+    }
+  }, [twoFA, twoFALocked, twoFALoading, updateUserAttribute, t]);
 
   const changingPassword = passwords.current || passwords.next || passwords.confirm;
 
@@ -359,7 +381,6 @@ export default function Settings() {
       } else if (activeTab === 'notifications') {
         persistSettings({ notifications: notifSettings, soundEnabled });
       } else if (activeTab === 'security') {
-        persistSettings({ twoFA });
         if (changingPassword) {
           await updateProfile({ password: passwords.next });
           setPasswords({ current: '', next: '', confirm: '' });
@@ -386,7 +407,7 @@ export default function Settings() {
       setSaving(false);
     }
   }, [
-    activeTab, profile, notifSettings, soundEnabled, twoFA, passwords,
+    activeTab, profile, notifSettings, soundEnabled, passwords,
     changingPassword, customAccent, mode, language, setAccentColor, pushNotification, updateProfile, t, tabs,
   ]);
 
@@ -576,9 +597,18 @@ export default function Settings() {
               <div className="flex items-center justify-between py-4 px-4 rounded-xl bg-capture-bg/40 border border-slate-600/20">
                 <div>
                   <p className="text-sm font-medium text-slate-200">{t('settings.security.twoFA')}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{t('settings.security.twoFADesc')}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {twoFALocked ? t('settings.security.twoFAActiveDesc') : t('settings.security.twoFADesc')}
+                  </p>
+                  {twoFAError && (
+                    <p className="text-xs text-capture-danger mt-1">{twoFAError}</p>
+                  )}
                 </div>
-                <Toggle checked={twoFA} onChange={setTwoFA} />
+                <Toggle
+                  checked={twoFA}
+                  onChange={handleTwoFAToggle}
+                  disabled={twoFALocked || twoFALoading}
+                />
               </div>
 
               <div className="space-y-4">
