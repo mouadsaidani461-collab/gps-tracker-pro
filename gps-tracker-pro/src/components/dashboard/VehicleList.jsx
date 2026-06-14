@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { Search } from 'lucide-react';
 import VehicleCard from './VehicleCard';
 import { VEHICLE_FILTERS } from '../../utils/constants';
-import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
+import { useLocale } from '../../context/LocaleContext';
+import { formatNumber } from '../../utils/formatters';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -17,6 +18,7 @@ export default function VehicleList({
   searchQuery = '',
   onSearchChange,
 }) {
+  const { t } = useLocale();
   const [localSearch, setLocalSearch] = useState(searchQuery);
 
   const filtered = useMemo(() => {
@@ -41,14 +43,13 @@ export default function VehicleList({
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Search */}
       <div className="relative mb-3 shrink-0">
         <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
         <input
           type="search"
           value={searchValue}
           onChange={handleSearch}
-          placeholder="بحث في المركبات..."
+          placeholder={t('vehicles.searchPlaceholder')}
           className={cn(
             'w-full ps-10 pe-4 py-2 rounded-lg text-sm',
             'bg-capture-bg/60 border border-slate-600/30',
@@ -59,9 +60,8 @@ export default function VehicleList({
         />
       </div>
 
-      {/* Filter tabs */}
       <div className="flex flex-wrap gap-1 mb-3 shrink-0">
-        {VEHICLE_FILTERS.map(({ value, label }) => (
+        {VEHICLE_FILTERS.map(({ value }) => (
           <button
             key={value}
             type="button"
@@ -73,17 +73,16 @@ export default function VehicleList({
                 : 'bg-capture-surface/60 text-capture-metallic border border-transparent hover:border-slate-600/30 hover:text-slate-300',
             )}
           >
-            {label}
+            {t(`vehicles.filters.${value}`)}
           </button>
         ))}
       </div>
 
-      {/* Scrollable list */}
       <div className="flex-1 overflow-y-auto space-y-3 min-h-0 pe-1">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-sm text-slate-500">لا توجد مركبات</p>
-            <p className="text-xs text-slate-600 mt-1">جرّب تغيير الفلتر أو البحث</p>
+            <p className="text-sm text-slate-500">{t('vehicles.noResults')}</p>
+            <p className="text-xs text-slate-600 mt-1">{t('vehicles.searchEmpty')}</p>
           </div>
         ) : (
           filtered.map((vehicle) => (
@@ -98,10 +97,10 @@ export default function VehicleList({
       </div>
 
       <p className="text-[10px] text-slate-600 mt-2 shrink-0 text-center">
-        <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(filtered.length, { maximumFractionDigits: 0 })}</span>
-        {' '}من{' '}
-        <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(vehicles.length, { maximumFractionDigits: 0 })}</span>
-        {' '}مركبة
+        {t('vehicles.countFooter', {
+          shown: formatNumber(filtered.length, { maximumFractionDigits: 0 }),
+          total: formatNumber(vehicles.length, { maximumFractionDigits: 0 }),
+        })}
       </p>
     </div>
   );

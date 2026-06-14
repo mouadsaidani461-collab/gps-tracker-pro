@@ -26,18 +26,21 @@ import {
 } from '../utils/geofenceUtils';
 import { formatNumber } from '../utils/formatters';
 import { useAuth } from './AuthContext';
+import { useLocale } from './LocaleContext';
 import { useSocket } from './SocketContext';
 
 const GeofenceContext = createContext(null);
 const UPDATE_DEBOUNCE_MS = 600;
 
-function createLocalGeofence(partial, index) {
+function createLocalGeofence(partial, index, t) {
   const color = partial.color ?? GEOFENCE_COLORS[index % GEOFENCE_COLORS.length];
 
   if (partial.type === GEOFENCE_TYPES.POLYGON) {
     const coordinates = partial.coordinates ?? [];
     return normalizeGeofence({
-      name: partial.name ?? `مضلع ${formatNumber(index + 1, { maximumFractionDigits: 0 })}`,
+      name: partial.name ?? t('geofence.defaultPolygonName', {
+        index: formatNumber(index + 1, { maximumFractionDigits: 0 }),
+      }),
       type: GEOFENCE_TYPES.POLYGON,
       coordinates,
       color,
@@ -45,7 +48,9 @@ function createLocalGeofence(partial, index) {
   }
 
   return normalizeGeofence({
-    name: partial.name ?? `منطقة ${formatNumber(index + 1, { maximumFractionDigits: 0 })}`,
+    name: partial.name ?? t('geofence.defaultZoneName', {
+      index: formatNumber(index + 1, { maximumFractionDigits: 0 }),
+    }),
     type: GEOFENCE_TYPES.CIRCLE,
     center: partial.center,
     radius: partial.radius ?? GEOFENCE_DEFAULTS.radius,
@@ -55,6 +60,7 @@ function createLocalGeofence(partial, index) {
 
 export function GeofenceProvider({ children }) {
   const { isAuthenticated } = useAuth();
+  const { t } = useLocale();
   const { isConnected, subscribe } = useSocket();
   const [geofences, setGeofences] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -92,11 +98,11 @@ export function GeofenceProvider({ children }) {
       const data = await geofenceApi.list();
       setGeofences(traccarGeofencesToApp(data));
     } catch (err) {
-      setError(err.message || 'تعذّر تحميل المناطق الجغرافية');
+      setError(err.message || t('geofence.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, t]);
 
   useEffect(() => {
     refreshGeofences();
@@ -172,7 +178,7 @@ export function GeofenceProvider({ children }) {
         setGeofences((prev) => prev.map((g) => (sameGeofenceId(g.id, id) ? normalized : g)));
       }
     } catch (err) {
-      setError(err.message || 'تعذّر حفظ المنطقة');
+      setError(err.message || t('geofence.saveFailed'));
       await refreshGeofences();
     } finally {
       setSaving(false);
@@ -193,7 +199,7 @@ export function GeofenceProvider({ children }) {
   }, [persistGeofence]);
 
   const addGeofence = useCallback(async (partial) => {
-    const draft = createLocalGeofence(partial, geofencesRef.current.length);
+    const draft = createLocalGeofence(partial, geofencesRef.current.length, t);
     setSaving(true);
     setError(null);
 
@@ -202,14 +208,14 @@ export function GeofenceProvider({ children }) {
       delete payload.id;
       const created = await geofenceApi.create(payload);
       const appGeofence = traccarGeofencesToApp([created])[0];
-      if (!appGeofence) throw new Error('استجابة غير صالحة من الخادم');
+      if (!appGeofence) throw new Error(t('geofence.invalidResponse'));
 
       setGeofences((prev) => [...prev, appGeofence]);
       setSelectedId(appGeofence.id);
       clearDrawState();
       return appGeofence;
     } catch (err) {
-      setError(err.message || 'تعذّر إنشاء المنطقة');
+      setError(err.message || t('geofence.createFailed'));
       throw err;
     } finally {
       setSaving(false);
@@ -233,7 +239,7 @@ export function GeofenceProvider({ children }) {
       setSelectedId((current) => (sameGeofenceId(current, id) ? null : current));
       clearDrawState();
     } catch (err) {
-      setError(err.message || 'تعذّر حذف المنطقة');
+      setError(err.message || t('geofence.deleteFailed'));
     } finally {
       setSaving(false);
     }
@@ -270,7 +276,9 @@ export function GeofenceProvider({ children }) {
     return addGeofence({
       type: GEOFENCE_TYPES.POLYGON,
       coordinates: [...polygonDraft],
-      name: `مضلع ${formatNumber(geofencesRef.current.length + 1, { maximumFractionDigits: 0 })}`,
+      name: t('geofence.defaultPolygonName', {
+        index: formatNumber(geofencesRef.current.length + 1, { maximumFractionDigits: 0 }),
+      }),
     });
   }, [polygonDraft, addGeofence]);
 
@@ -279,7 +287,9 @@ export function GeofenceProvider({ children }) {
       await addGeofence({
         type: GEOFENCE_TYPES.CIRCLE,
         center: point,
-        name: `منطقة جديدة ${formatNumber(geofencesRef.current.length + 1, { maximumFractionDigits: 0 })}`,
+        name: t('geofence.defaultNewZone', {
+          index: formatNumber(geofencesRef.current.length + 1, { maximumFractionDigits: 0 }),
+        }),
       });
       return;
     }
@@ -329,7 +339,7 @@ export function GeofenceProvider({ children }) {
         setLinkedDeviceIds((prev) => [...prev, deviceId]);
       }
     } catch (err) {
-      setError(err.message || 'تعذّر تحديث ربط الجهاز');
+      setError(err.message || t('geofence.linkFailed'));
     } finally {
       setLinksLoading(false);
     }

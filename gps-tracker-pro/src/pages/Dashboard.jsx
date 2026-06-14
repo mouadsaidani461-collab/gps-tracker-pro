@@ -1,6 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Truck, Activity, AlertTriangle, Users } from 'lucide-react';
-import { MAP } from '../utils/constants';
 import { formatNumber } from '../utils/formatters';
 import { userApi } from '../services/traccarApi';
 import StatCard from '../components/dashboard/StatCard';
@@ -10,6 +9,7 @@ import MapView from '../components/map/MapView';
 import { useVehicles } from '../hooks/useVehicles';
 import { useGeofences } from '../hooks/useGeofences';
 import { useAuth } from '../context/AuthContext';
+import { useLocale } from '../context/LocaleContext';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -17,8 +17,10 @@ function cn(...classes) {
 
 export default function Dashboard() {
   const { isAdmin } = useAuth();
+  const { dir, t } = useLocale();
   const {
     vehicles,
+    positionedVehicles,
     filteredVehicles,
     selectedVehicle,
     selectedId,
@@ -70,43 +72,43 @@ export default function Dashboard() {
   const statCards = [
     {
       icon: Truck,
-      title: 'إجمالي المركبات',
+      title: t('dashboard.totalVehicles'),
       value: formatNumber(stats.total, { maximumFractionDigits: 0 }),
       trend: {
         direction: 'up',
         numeric: formatNumber(stats.moving, { maximumFractionDigits: 0 }),
-        suffix: 'متحرك',
+        suffix: t('dashboard.moving'),
       },
-      trendLabel: 'مركبات على الطريق',
+      trendLabel: t('dashboard.onRoad'),
       color: 'cyan',
     },
     {
       icon: Activity,
-      title: 'نشط الآن',
+      title: t('dashboard.activeNow'),
       value: formatNumber(activeNow, { maximumFractionDigits: 0 }),
-      trend: { direction: 'neutral', text: isConnected ? 'مباشر' : 'غير متصل' },
-      trendLabel: 'حالة WebSocket',
+      trend: { direction: 'neutral', text: isConnected ? t('dashboard.live') : t('dashboard.disconnected') },
+      trendLabel: t('dashboard.wsStatus'),
       color: 'green',
     },
     {
       icon: AlertTriangle,
-      title: 'التنبيهات',
+      title: t('dashboard.alerts'),
       value: formatNumber(stats.activeAlerts, { maximumFractionDigits: 0 }),
       trend: {
         direction: stats.alert > 0 ? 'down' : 'neutral',
         numeric: formatNumber(stats.alert, { maximumFractionDigits: 0 }),
       },
-      trendLabel: 'مركبات بحالة تنبيه',
+      trendLabel: t('dashboard.alertVehicles'),
       color: 'red',
     },
     {
       icon: Users,
-      title: 'المستخدمون',
+      title: t('dashboard.users'),
       value: userCount != null
         ? formatNumber(userCount, { maximumFractionDigits: 0 })
         : '—',
       trend: { direction: 'neutral', text: '—' },
-      trendLabel: 'حسابات Traccar',
+      trendLabel: t('dashboard.traccarAccounts'),
       color: 'violet',
     },
   ];
@@ -115,12 +117,12 @@ export default function Dashboard() {
   const mapError = vehiclesError || geofencesError;
 
   return (
-    <div dir="rtl" className="space-y-6 animate-fade-in">
+    <div dir={dir} className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">لوحة التحكم</h1>
+          <h1 className="text-2xl font-bold text-slate-100">{t('dashboard.title')}</h1>
           <p className="text-sm text-capture-metallic mt-1">
-            مراقبة الأسطول في الوقت الفعلي — Traccar API
+            {t('dashboard.subtitle')}
           </p>
         </div>
         <LiveIndicator
@@ -151,11 +153,11 @@ export default function Dashboard() {
           )}
         >
           <h2 className="text-sm font-semibold text-slate-200 mb-3 shrink-0">
-            قائمة المركبات
+            {t('dashboard.vehicleList')}
           </h2>
           {vehiclesLoading ? (
             <div className="flex-1 flex items-center justify-center text-sm text-capture-metallic">
-              جاري تحميل المركبات...
+              {t('dashboard.loadingVehicles')}
             </div>
           ) : (
             <VehicleList
@@ -171,7 +173,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2 flex flex-col min-h-[480px]">
           <div className="flex items-center justify-between mb-3 shrink-0">
             <h2 className="text-sm font-semibold text-slate-200">
-              الخريطة المباشرة — {MAP.label}
+              {t('dashboard.liveMap')} — {t('map.morocco')}
             </h2>
             {selectedVehicle && (
               <button
@@ -179,7 +181,7 @@ export default function Dashboard() {
                 onClick={() => selectVehicle(selectedVehicle.id)}
                 className="text-xs text-capture-glow hover:text-capture-primary transition-colors"
               >
-                توسيط: {selectedVehicle.name}
+                {t('dashboard.centerOn')}: {selectedVehicle.name}
               </button>
             )}
           </div>
@@ -190,7 +192,7 @@ export default function Dashboard() {
               </div>
             )}
             <MapView
-              vehicles={vehicles}
+              vehicles={positionedVehicles}
               selectedId={selectedId}
               selectedVehicle={selectedVehicle}
               onSelectVehicle={(v) => selectVehicle(v.id)}

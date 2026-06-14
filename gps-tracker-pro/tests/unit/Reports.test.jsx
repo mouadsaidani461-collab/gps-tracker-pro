@@ -7,6 +7,7 @@ import { renderWithLocale } from '../helpers/renderWithLocale';
 
 vi.mock('../../src/hooks/useVehicles', () => ({
   useVehicles: vi.fn(() => ({
+    vehicles: [{ id: '1', deviceId: 1, plate: 'TN-1234', name: 'Car', driver: 'Driver' }],
     reportFleet: [{ id: '1', deviceId: 1, plate: 'TN-1234', name: 'Car', driver: 'Driver' }],
     allVehicles: [],
   })),

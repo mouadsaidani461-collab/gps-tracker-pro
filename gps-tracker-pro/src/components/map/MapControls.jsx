@@ -4,7 +4,9 @@ import {
   Plus, Minus, Layers, Maximize, Minimize, Crosshair,
 } from 'lucide-react';
 import { MAP } from '../../utils/constants';
-import { formatNumber, formatCoordinates, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
+import { useLocale } from '../../context/LocaleContext';
+import { useFormatters } from '../../hooks/useFormatters';
+import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -12,17 +14,14 @@ function cn(...classes) {
 
 export const TILE_LAYERS = {
   dark: {
-    label: 'داكن',
     url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
     attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
   },
   street: {
-    label: 'شارع',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; OpenStreetMap',
   },
   satellite: {
-    label: 'قمر صناعي',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attribution: '&copy; Esri',
   },
@@ -35,6 +34,8 @@ export default function MapControls({
   isFullscreen = false,
   onFullscreenChange,
 }) {
+  const { t } = useLocale();
+  const { formatCoordinates } = useFormatters();
   const map = useMap();
   const [zoom, setZoom] = useState(() => map.getZoom());
 
@@ -75,6 +76,8 @@ export default function MapControls({
     }
   }, [map, onFullscreenChange]);
 
+  const layerLabel = t(`map.layers.${layer}`);
+
   const btnClass = cn(
     'w-9 h-9 flex items-center justify-center rounded-lg',
     'bg-capture-card/90 backdrop-blur-md',
@@ -90,11 +93,10 @@ export default function MapControls({
 
   return (
     <div className="absolute bottom-6 end-6 z-[1000] flex flex-col gap-1.5">
-      {/* Zoom */}
-      <button type="button" onClick={handleZoomIn} className={btnClass} aria-label="تكبير">
+      <button type="button" onClick={handleZoomIn} className={btnClass} aria-label={t('mapControls.zoomIn')}>
         <Plus className="w-4 h-4" />
       </button>
-      <button type="button" onClick={handleZoomOut} className={btnClass} aria-label="تصغير">
+      <button type="button" onClick={handleZoomOut} className={btnClass} aria-label={t('mapControls.zoomOut')}>
         <Minus className="w-4 h-4" />
       </button>
 
@@ -104,41 +106,37 @@ export default function MapControls({
         </span>
       </div>
 
-      {/* Layer toggle */}
       <button
         type="button"
         onClick={cycleLayer}
         className={cn(btnClass, 'mt-1')}
-        title={TILE_LAYERS[layer]?.label}
-        aria-label="تبديل طبقة الخريطة"
+        title={layerLabel}
+        aria-label={t('mapControls.toggleLayer')}
       >
         <Layers className="w-4 h-4" />
       </button>
 
-      {/* Center on vehicle */}
       <button
         type="button"
         onClick={handleCenterVehicle}
         disabled={!selectedVehicle}
         className={cn(btnClass, !selectedVehicle && 'opacity-40 cursor-not-allowed')}
-        aria-label="توسيط على المركبة"
+        aria-label={t('mapControls.centerVehicle')}
       >
         <Crosshair className="w-4 h-4" />
       </button>
 
-      {/* Fullscreen */}
       <button
         type="button"
         onClick={toggleFullscreen}
         className={btnClass}
-        aria-label={isFullscreen ? 'إنهاء ملء الشاشة' : 'ملء الشاشة'}
+        aria-label={isFullscreen ? t('mapControls.exitFullscreen') : t('mapControls.enterFullscreen')}
       >
         {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
       </button>
 
-      {/* Layer label */}
       <div className={cn(panelClass, 'mt-1')}>
-        {TILE_LAYERS[layer]?.label}
+        {layerLabel}
       </div>
 
       {selectedVehicle && (

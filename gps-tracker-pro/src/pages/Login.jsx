@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLocale } from '../context/LocaleContext';
 import { APP_NAME } from '../utils/constants';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
@@ -15,6 +16,7 @@ function cn(...classes) {
 
 export default function Login() {
   const { login, isAuthenticated, loading: authLoading, sessionExpired, clearSessionExpired, error: authError } = useAuth();
+  const { dir, t } = useLocale();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState(() => localStorage.getItem(REMEMBER_KEY) ?? '');
@@ -28,10 +30,10 @@ export default function Login() {
 
   useEffect(() => {
     if (sessionExpired) {
-      setFormError('انتهت جلستك بسبب عدم النشاط. يرجى تسجيل الدخول مجدداً.');
+      setFormError(t('login.sessionExpired'));
       clearSessionExpired();
     }
-  }, [sessionExpired, clearSessionExpired]);
+  }, [sessionExpired, clearSessionExpired, t]);
 
   if (!authLoading && isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
@@ -40,14 +42,14 @@ export default function Login() {
   const validate = () => {
     const errors = {};
     if (!email.trim()) {
-      errors.email = 'البريد الإلكتروني مطلوب';
+      errors.email = t('common.validation.emailRequired');
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      errors.email = 'البريد الإلكتروني غير صالح';
+      errors.email = t('common.validation.emailInvalid');
     }
     if (!password) {
-      errors.password = 'كلمة المرور مطلوبة';
+      errors.password = t('common.validation.passwordRequired');
     } else if (password.length < 6) {
-      errors.password = 'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
+      errors.password = t('common.validation.passwordMinLength', { min: 6 });
     }
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -72,7 +74,7 @@ export default function Login() {
     if (result.success) {
       navigate('/dashboard', { replace: true });
     } else {
-      setFormError(result.error ?? authError ?? 'فشل تسجيل الدخول');
+      setFormError(result.error ?? authError ?? t('login.failed'));
     }
   };
 
@@ -80,7 +82,7 @@ export default function Login() {
 
   return (
     <div
-      dir="rtl"
+      dir={dir}
       className={cn(
         'relative min-h-screen flex items-center justify-center p-4',
         'bg-capture-bg capture-grid-bg',
@@ -118,7 +120,7 @@ export default function Login() {
               <span className="text-capture-glow">GPS</span>
             </h1>
             <p className="text-sm text-capture-metallic mt-1.5">
-              نظام تتبع الأسطول الذكي
+              {t('app.subtitleLong')}
             </p>
           </div>
 
@@ -141,7 +143,7 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <Input
               id="email"
-              label="البريد الإلكتروني"
+              label={t('login.email')}
               type="email"
               autoComplete="email"
               value={email}
@@ -149,7 +151,7 @@ export default function Login() {
                 setEmail(e.target.value);
                 if (fieldErrors.email) setFieldErrors((p) => ({ ...p, email: '' }));
               }}
-              placeholder="mouadsaidani461@gmail.com"
+              placeholder={t('login.emailPlaceholder')}
               error={fieldErrors.email}
               leftIcon={<Mail className="w-4 h-4" />}
               disabled={submitting}
@@ -158,7 +160,7 @@ export default function Login() {
 
             <Input
               id="password"
-              label="كلمة المرور"
+              label={t('login.password')}
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
               value={password}
@@ -174,7 +176,7 @@ export default function Login() {
                   type="button"
                   onClick={() => setShowPassword((p) => !p)}
                   className="text-capture-metallic hover:text-capture-glow transition-colors"
-                  aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                  aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -185,13 +187,13 @@ export default function Login() {
 
             <Input
               id="totp"
-              label="رمز المصادقة الثنائية (2FA)"
+              label={t('login.totp')}
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
               value={totpCode}
               onChange={(e) => setTotpCode(e.target.value.replace(/\s/g, ''))}
-              placeholder="اختياري — إذا كان مفعّلاً على Traccar"
+              placeholder={t('login.totpPlaceholder')}
               disabled={submitting}
             />
 
@@ -211,16 +213,16 @@ export default function Login() {
                   )}
                 />
                 <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
-                  تذكرني
+                  {t('login.rememberMe')}
                 </span>
               </label>
 
               <button
                 type="button"
-                onClick={() => setFormError('يرجى التواصل مع مدير النظام لاستعادة كلمة المرور.')}
+                onClick={() => setFormError(t('login.forgotPasswordMsg'))}
                 className="text-sm text-capture-glow hover:text-capture-primary transition-colors hover:underline underline-offset-2"
               >
-                نسيت كلمة المرور؟
+                {t('login.forgotPassword')}
               </button>
             </div>
 
@@ -232,17 +234,17 @@ export default function Login() {
               loading={submitting}
               className="mt-2 hover:shadow-glow-lg"
             >
-              {submitting ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
+              {submitting ? t('login.submitting') : t('login.submit')}
             </Button>
           </form>
 
           <div className="mt-6 pt-5 border-t border-slate-600/20 text-center">
             <p className="text-[11px] text-slate-500 mb-1">
-              استخدم حساب Traccar على المنفذ{' '}
+              {t('login.footerPort')}{' '}
               <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(8082, { maximumFractionDigits: 0 })}</span>
             </p>
             <p className="text-xs text-capture-metallic">
-              الجلسة عبر cookie — API: <span dir="ltr" className="text-capture-glow">/api</span>
+              {t('login.footerSession')} <span dir="ltr" className="text-capture-glow">/api</span>
             </p>
           </div>
         </div>

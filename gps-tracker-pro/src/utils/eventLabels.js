@@ -1,28 +1,39 @@
 /**
- * Arabic labels for Traccar event types — shared by reports and notifications.
+ * Traccar event type labels — locale-aware via i18n.
  */
 
-export const EVENT_LABELS = {
-  deviceOverspeed: 'تجاوز السرعة',
-  geofenceEnter: 'دخول منطقة',
-  geofenceExit: 'خروج منطقة',
-  alarm: 'إنذار',
-  deviceMoving: 'حركة',
-  deviceStopped: 'توقف',
-  deviceOffline: 'غير متصل',
-  deviceOnline: 'اتصال',
-  maintenance: 'صيانة',
-  deviceFuelDrop: 'انخفاض وقود',
-  ignitionOn: 'تشغيل المحرك',
-  ignitionOff: 'إيقاف المحرك',
-};
+import { translate } from '../i18n';
+import { LOCALE } from './constants';
 
-export function eventLabel(type) {
-  return EVENT_LABELS[type] ?? type ?? 'حدث';
+const EVENT_KEYS = [
+  'deviceOverspeed',
+  'geofenceEnter',
+  'geofenceExit',
+  'alarm',
+  'deviceMoving',
+  'deviceStopped',
+  'deviceOffline',
+  'deviceOnline',
+  'maintenance',
+  'deviceFuelDrop',
+  'ignitionOn',
+  'ignitionOff',
+];
+
+export function eventLabel(type, language = LOCALE.fallback) {
+  if (type && EVENT_KEYS.includes(type)) {
+    return translate(language, `events.${type}`);
+  }
+  return type ?? translate(language, 'events.unknown');
 }
 
-export function deviceDisplayName(device) {
+export function deviceDisplayName(device, language = LOCALE.fallback) {
   if (device?.name) return device.name;
   if (device?.uniqueId) return device.uniqueId;
-  return 'مركبة غير معروفة';
+  return translate(language, 'events.unknownVehicle');
 }
+
+/** @deprecated Use eventLabel(type, language) */
+export const EVENT_LABELS = Object.fromEntries(
+  EVENT_KEYS.map((key) => [key, translate(LOCALE.fallback, `events.${key}`)]),
+);

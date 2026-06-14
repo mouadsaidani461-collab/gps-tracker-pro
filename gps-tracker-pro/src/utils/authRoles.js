@@ -35,6 +35,7 @@ export const ROLE_PERMISSIONS = {
     'vehicles:read',
     'vehicles:write',
     'map:read',
+    'geofences:write',
     'reports:read',
     'notifications:read',
   ],

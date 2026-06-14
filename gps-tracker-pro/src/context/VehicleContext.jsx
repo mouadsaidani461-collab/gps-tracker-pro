@@ -43,12 +43,23 @@ export function VehicleProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const [devicesData, positionsData] = await Promise.all([
+      const [devicesResult, positionsResult] = await Promise.allSettled([
         fleetApi.devices(),
         fleetApi.positions(),
       ]);
-      setDevices(devicesData ?? []);
-      setPositionsByDeviceId(indexPositions(positionsData));
+
+      if (devicesResult.status === 'fulfilled') {
+        setDevices(devicesResult.value ?? []);
+      } else {
+        throw devicesResult.reason;
+      }
+
+      if (positionsResult.status === 'fulfilled') {
+        setPositionsByDeviceId(indexPositions(positionsResult.value));
+      } else {
+        setPositionsByDeviceId({});
+        console.warn('[fleet] positions unavailable:', positionsResult.reason?.message);
+      }
     } catch (err) {
       setError(err.message || 'تعذّر تحميل المركبات');
     } finally {
@@ -79,29 +90,34 @@ export function VehicleProvider({ children }) {
     });
   }, [isAuthenticated, subscribe]);
 
-  const vehicles = useMemo(
-    () => mapDevicesToVehicles(devices, positionsByDeviceId)
-      .filter((vehicle) => vehicle.hasPosition),
+  const allVehicles = useMemo(
+    () => mapDevicesToVehicles(devices, positionsByDeviceId),
     [devices, positionsByDeviceId],
   );
 
+  /** Devices with a GPS fix — used for map markers only */
+  const positionedVehicles = useMemo(
+    () => allVehicles.filter((vehicle) => vehicle.hasPosition),
+    [allVehicles],
+  );
+
   const filteredVehicles = filter === 'all'
-    ? vehicles
-    : vehicles.filter((v) => v.status === filter);
+    ? allVehicles
+    : allVehicles.filter((v) => v.status === filter);
 
   const selectedVehicle = selectedId
-    ? vehicles.find((v) => v.id === selectedId) ?? null
+    ? allVehicles.find((v) => v.id === selectedId) ?? null
     : null;
 
   const stats = useMemo(() => ({
-    total: vehicles.length,
-    moving: vehicles.filter((v) => v.status === VEHICLE_STATUS.MOVING).length,
-    idle: vehicles.filter((v) => v.status === VEHICLE_STATUS.IDLE).length,
-    online: vehicles.filter((v) => v.status === VEHICLE_STATUS.ONLINE).length,
-    offline: vehicles.filter((v) => v.status === VEHICLE_STATUS.OFFLINE).length,
-    alert: vehicles.filter((v) => v.status === VEHICLE_STATUS.ALERT).length,
-    activeAlerts: vehicles.reduce((sum, v) => sum + v.alerts.length, 0),
-  }), [vehicles]);
+    total: allVehicles.length,
+    moving: allVehicles.filter((v) => v.status === VEHICLE_STATUS.MOVING).length,
+    idle: allVehicles.filter((v) => v.status === VEHICLE_STATUS.IDLE).length,
+    online: allVehicles.filter((v) => v.status === VEHICLE_STATUS.ONLINE).length,
+    offline: allVehicles.filter((v) => v.status === VEHICLE_STATUS.OFFLINE).length,
+    alert: allVehicles.filter((v) => v.status === VEHICLE_STATUS.ALERT).length,
+    activeAlerts: allVehicles.reduce((sum, v) => sum + v.alerts.length, 0),
+  }), [allVehicles]);
 
   const selectVehicle = useCallback((id) => {
     setSelectedId(id);
@@ -112,13 +128,14 @@ export function VehicleProvider({ children }) {
   }, []);
 
   const getVehicleById = useCallback(
-    (id) => vehicles.find((v) => v.id === id) ?? null,
-    [vehicles],
+    (id) => allVehicles.find((v) => v.id === id) ?? null,
+    [allVehicles],
   );
 
   const value = useMemo(
     () => ({
-      vehicles,
+      vehicles: allVehicles,
+      positionedVehicles,
       filteredVehicles,
       selectedVehicle,
       selectedId,
@@ -135,7 +152,8 @@ export function VehicleProvider({ children }) {
       refreshFleet: loadFleet,
     }),
     [
-      vehicles,
+      allVehicles,
+      positionedVehicles,
       filteredVehicles,
       selectedVehicle,
       selectedId,

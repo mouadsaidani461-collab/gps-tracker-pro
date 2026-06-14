@@ -1,24 +1,41 @@
 /**
  * Capture Tracking GPS — Formatters
- * Arabic text/RTL preserved; all numeric output uses Western digits (en-US).
+ * Numeric output uses Western digits (en-US); dates/units follow selected language.
  */
 
-import { LOCALE, UNITS } from './constants';
+import { getIntlLocale, translate } from '../i18n';
+import { LOCALE } from './constants';
 
 /** Always Western Arabic numerals (0-9) regardless of UI locale */
 export const NUMBER_LOCALE = 'en-US';
 
-/** Keep Western digits LTR inside RTL Arabic layout (see index.css `.NUMERIC_DISPLAY_CLASS`) */
+/** Keep Western digits LTR inside RTL layout (see index.css `.NUMERIC_DISPLAY_CLASS`) */
 export const NUMERIC_DISPLAY_CLASS = 'NUMERIC_DISPLAY_CLASS tabular-nums inline-block';
 
-const dateLocale = LOCALE.default;
+function resolveLanguage(language) {
+  return language && LOCALE.supported.includes(language) ? language : LOCALE.fallback;
+}
+
+function unitsFor(language) {
+  const lang = resolveLanguage(language);
+  return {
+    speed: translate(lang, 'units.speed'),
+    distance: translate(lang, 'units.distance'),
+    meters: translate(lang, 'units.meters'),
+    durationHours: translate(lang, 'units.durationHours'),
+    dateTimeSeparator: translate(lang, 'units.dateTimeSeparator'),
+    listSeparator: translate(lang, 'units.listSeparator'),
+  };
+}
+
+function intlLocaleFor(language) {
+  return getIntlLocale(resolveLanguage(language));
+}
 
 // ── Core number formatting ──
 
 /**
  * Format any numeric value with en-US locale (Western digits + grouping).
- * @example formatNumber(1234) → "1,234"
- * @example formatNumber(1234.5, { maximumFractionDigits: 1 }) → "1,234.5"
  */
 export function formatNumber(value, options = {}) {
   if (value == null || value === '') return '—';
@@ -28,7 +45,6 @@ export function formatNumber(value, options = {}) {
   return num.toLocaleString(NUMBER_LOCALE, options);
 }
 
-/** Fixed decimal places without grouping ambiguity for small values */
 function formatDecimal(value, decimals = 0) {
   return formatNumber(value, {
     minimumFractionDigits: decimals,
@@ -36,7 +52,7 @@ function formatDecimal(value, decimals = 0) {
   });
 }
 
-/** @deprecated Use formatNumber — kept for backward compatibility (returns Western digits) */
+/** @deprecated Use formatNumber — kept for backward compatibility */
 export function toArabicNumerals(value) {
   if (value == null || value === '') return '';
   const str = String(value);
@@ -56,14 +72,14 @@ export function toWesternNumerals(value) {
   return str.replace(/[٠-٩]/g, (d) => map[d] ?? d);
 }
 
-// ── Date & Time (Arabic month names; times may use locale — no digit conversion in dates from locale) ──
+// ── Date & Time ──
 
-export function formatDate(isoString, options = {}) {
+export function formatDate(isoString, options = {}, language = LOCALE.fallback) {
   if (!isoString) return '—';
   const date = new Date(isoString);
   if (Number.isNaN(date.getTime())) return '—';
 
-  return date.toLocaleDateString(dateLocale, {
+  return date.toLocaleDateString(intlLocaleFor(language), {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -72,12 +88,12 @@ export function formatDate(isoString, options = {}) {
   });
 }
 
-export function formatTime(isoString, options = {}) {
+export function formatTime(isoString, options = {}, language = LOCALE.fallback) {
   if (!isoString) return '—';
   const date = new Date(isoString);
   if (Number.isNaN(date.getTime())) return '—';
 
-  return date.toLocaleTimeString(dateLocale, {
+  return date.toLocaleTimeString(intlLocaleFor(language), {
     hour: '2-digit',
     minute: '2-digit',
     numberingSystem: 'latn',
@@ -85,90 +101,103 @@ export function formatTime(isoString, options = {}) {
   });
 }
 
-export function formatDateTime(isoString) {
+export function formatDateTime(isoString, language = LOCALE.fallback) {
   if (!isoString) return '—';
-  return `${formatDate(isoString)}، ${formatTime(isoString)}`;
+  const units = unitsFor(language);
+  return `${formatDate(isoString, {}, language)}${units.dateTimeSeparator}${formatTime(isoString, {}, language)}`;
 }
 
-export function formatRelativeTime(isoString) {
+export function formatRelativeTime(isoString, language = LOCALE.fallback) {
   if (!isoString) return '—';
   const date = new Date(isoString);
   if (Number.isNaN(date.getTime())) return '—';
 
+  const lang = resolveLanguage(language);
   const diffMs = Date.now() - date.getTime();
   const diffSec = Math.floor(diffMs / 1000);
   const diffMin = Math.floor(diffSec / 60);
   const diffHour = Math.floor(diffMin / 60);
   const diffDay = Math.floor(diffHour / 24);
 
-  if (diffSec < 60) return 'الآن';
-  if (diffMin < 60) return `منذ ${formatNumber(diffMin, { maximumFractionDigits: 0 })} ${diffMin === 1 ? 'دقيقة' : 'دقائق'}`;
-  if (diffHour < 24) return `منذ ${formatNumber(diffHour, { maximumFractionDigits: 0 })} ${diffHour === 1 ? 'ساعة' : 'ساعات'}`;
-  if (diffDay < 7) return `منذ ${formatNumber(diffDay, { maximumFractionDigits: 0 })} ${diffDay === 1 ? 'يوم' : 'أيام'}`;
+  if (diffSec < 60) return translate(lang, 'time.now');
+  if (diffMin < 60) {
+    const key = diffMin === 1 ? 'time.agoOneMinute' : 'time.agoMinutes';
+    return translate(lang, key, { count: diffMin });
+  }
+  if (diffHour < 24) {
+    const key = diffHour === 1 ? 'time.agoOneHour' : 'time.agoHours';
+    return translate(lang, key, { count: diffHour });
+  }
+  if (diffDay < 7) {
+    const key = diffDay === 1 ? 'time.agoOneDay' : 'time.agoDays';
+    return translate(lang, key, { count: diffDay });
+  }
 
-  return formatDate(isoString);
+  return formatDate(isoString, {}, language);
 }
 
-/** Structured parts for RTL UI — numeric span uses Western digits + dir=ltr */
-export function formatRelativeTimeParts(isoString) {
+/** Structured parts for RTL/LTR UI — numeric span uses Western digits + dir=ltr */
+export function formatRelativeTimeParts(isoString, language = LOCALE.fallback) {
   if (!isoString) return { type: 'empty', text: '—' };
   const date = new Date(isoString);
   if (Number.isNaN(date.getTime())) return { type: 'empty', text: '—' };
 
+  const lang = resolveLanguage(language);
   const diffMs = Date.now() - date.getTime();
   const diffSec = Math.floor(diffMs / 1000);
   const diffMin = Math.floor(diffSec / 60);
   const diffHour = Math.floor(diffMin / 60);
   const diffDay = Math.floor(diffHour / 24);
 
-  if (diffSec < 60) return { type: 'now', text: 'الآن' };
+  if (diffSec < 60) return { type: 'now', text: translate(lang, 'time.now') };
   if (diffMin < 60) {
     return {
       type: 'relative',
-      prefix: 'منذ',
+      prefix: translate(lang, 'time.prefixAgo'),
       value: diffMin,
-      suffix: diffMin === 1 ? 'دقيقة' : 'دقائق',
+      suffix: diffMin === 1 ? translate(lang, 'time.minute') : translate(lang, 'time.minutes'),
     };
   }
   if (diffHour < 24) {
     return {
       type: 'relative',
-      prefix: 'منذ',
+      prefix: translate(lang, 'time.prefixAgo'),
       value: diffHour,
-      suffix: diffHour === 1 ? 'ساعة' : 'ساعات',
+      suffix: diffHour === 1 ? translate(lang, 'time.hour') : translate(lang, 'time.hours'),
     };
   }
   if (diffDay < 7) {
     return {
       type: 'relative',
-      prefix: 'منذ',
+      prefix: translate(lang, 'time.prefixAgo'),
       value: diffDay,
-      suffix: diffDay === 1 ? 'يوم' : 'أيام',
+      suffix: diffDay === 1 ? translate(lang, 'time.day') : translate(lang, 'time.days'),
     };
   }
-  return { type: 'date', text: formatDate(isoString) };
+  return { type: 'date', text: formatDate(isoString, {}, language) };
 }
 
 // ── Distance ──
 
-/** Format km value → "245.3 km" (Western digits) */
-export function formatDistance(km, decimals = 1) {
+export function formatDistance(km, decimals = 1, language = LOCALE.fallback) {
   if (km == null || Number.isNaN(km)) return '—';
-  return `${formatDecimal(km, decimals)} ${UNITS.distance}`;
+  const units = unitsFor(language);
+  return `${formatDecimal(km, decimals)} ${units.distance}`;
 }
 
-export function formatDistanceAuto(meters) {
+export function formatDistanceAuto(meters, language = LOCALE.fallback) {
   if (meters == null || Number.isNaN(meters)) return '—';
-  if (meters >= 1000) return formatDistance(meters / 1000);
-  return `${formatNumber(Math.round(meters), { maximumFractionDigits: 0 })} م`;
+  const units = unitsFor(language);
+  if (meters >= 1000) return formatDistance(meters / 1000, 1, language);
+  return `${formatNumber(Math.round(meters), { maximumFractionDigits: 0 })} ${units.meters}`;
 }
 
 // ── Speed ──
 
-/** Format speed → "72 km/h" (Western digits) */
-export function formatSpeed(speed, decimals = 0) {
+export function formatSpeed(speed, decimals = 0, language = LOCALE.fallback) {
   if (speed == null || Number.isNaN(speed)) return '—';
-  return `${formatDecimal(speed, decimals)} ${UNITS.speed}`;
+  const units = unitsFor(language);
+  return `${formatDecimal(speed, decimals)} ${units.speed}`;
 }
 
 // ── Percentage ──
@@ -184,24 +213,23 @@ export const formatFuel = formatPercent;
 
 // ── Odometer ──
 
-/** Format odometer → "45,620 km" */
-export function formatOdometer(km) {
+export function formatOdometer(km, language = LOCALE.fallback) {
   if (km == null || Number.isNaN(km)) return '—';
-  return `${formatNumber(km, { maximumFractionDigits: 0 })} ${UNITS.distance}`;
+  const units = unitsFor(language);
+  return `${formatNumber(km, { maximumFractionDigits: 0 })} ${units.distance}`;
 }
 
 // ── Coordinates ──
 
-/** Format single coordinate → "36.8065" */
 export function formatCoordinate(value, decimals = 4) {
   if (value == null || Number.isNaN(value)) return '—';
   return formatDecimal(value, decimals);
 }
 
-/** Format lat/lng → "36.8065، 10.1815" */
-export function formatCoordinates(lat, lng, decimals = 4) {
+export function formatCoordinates(lat, lng, decimals = 4, language = LOCALE.fallback) {
   if (lat == null || lng == null) return '—';
-  return `${formatCoordinate(lat, decimals)}، ${formatCoordinate(lng, decimals)}`;
+  const units = unitsFor(language);
+  return `${formatCoordinate(lat, decimals)}${units.listSeparator}${formatCoordinate(lng, decimals)}`;
 }
 
 // ── Plate Number ──
@@ -213,9 +241,10 @@ export function formatPlate(plate) {
 
 // ── Duration ──
 
-export function formatDuration(hours) {
+export function formatDuration(hours, language = LOCALE.fallback) {
   if (hours == null || Number.isNaN(hours)) return '—';
-  return `${formatDecimal(hours, 1)} س`;
+  const units = unitsFor(language);
+  return `${formatDecimal(hours, 1)} ${units.durationHours}`;
 }
 
 export default {

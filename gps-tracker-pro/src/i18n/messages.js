@@ -454,6 +454,12 @@ export const messages = {
       wsConnectedTitle: 'متصل — WebSocket',
       live: 'مباشر',
       offline: 'غير متصل',
+      types: {
+        critical: 'حرج',
+        warning: 'تحذير',
+        info: 'معلومة',
+        success: 'نجاح',
+      },
     },
     reports: {
       title: 'التقارير',
@@ -1111,6 +1117,12 @@ export const messages = {
       wsConnectedTitle: 'Connecté — WebSocket',
       live: 'En direct',
       offline: 'Hors ligne',
+      types: {
+        critical: 'Critique',
+        warning: 'Avertissement',
+        info: 'Info',
+        success: 'Succès',
+      },
     },
     reports: {
       title: 'Rapports',
@@ -1768,6 +1780,12 @@ export const messages = {
       wsConnectedTitle: 'Connected — WebSocket',
       live: 'Live',
       offline: 'Offline',
+      types: {
+        critical: 'Critical',
+        warning: 'Warning',
+        info: 'Info',
+        success: 'Success',
+      },
     },
     reports: {
       title: 'Reports',

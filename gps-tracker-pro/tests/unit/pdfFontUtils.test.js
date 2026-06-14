@@ -71,15 +71,17 @@ describe('exportReportPdf Arabic text', () => {
     const autoTable = vi.fn();
 
     vi.doMock('jspdf', () => ({
-      jsPDF: vi.fn(() => ({
-        setFont,
-        setFontSize: vi.fn(),
-        text,
-        save,
-        getFontList: () => ({}),
-        addFileToVFS: vi.fn(),
-        addFont: vi.fn(),
-      })),
+      jsPDF: class MockJsPDF {
+        constructor() {
+          this.setFont = setFont;
+          this.setFontSize = vi.fn();
+          this.text = text;
+          this.save = save;
+          this.getFontList = () => ({});
+          this.addFileToVFS = vi.fn();
+          this.addFont = vi.fn();
+        }
+      },
     }));
     vi.doMock('jspdf-autotable', () => ({ default: autoTable }));
 

@@ -8,7 +8,9 @@ import {
   LogOut,
   ChevronDown,
 } from 'lucide-react';
-import { useAuth, ROLE_LABELS } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
+import { useLocale } from '../../context/LocaleContext';
+import { getRoleLabel } from '../../utils/authRoles';
 import { APP_NAME } from '../../utils/constants';
 import NotificationBell from '../notifications/NotificationBell';
 
@@ -26,8 +28,9 @@ function useClickOutside(ref, handler) {
   }, [ref, handler]);
 }
 
-export default function Navbar({ onMenuToggle, searchQuery = '', onSearchChange }) {
+export default function Navbar({ onMenuClick, showMenu = false, searchQuery = '', onSearchChange }) {
   const { user, logout, role } = useAuth();
+  const { t, language } = useLocale();
   const navigate = useNavigate();
 
   const [profileOpen, setProfileOpen] = useState(false);
@@ -65,20 +68,21 @@ export default function Navbar({ onMenuToggle, searchQuery = '', onSearchChange 
 
         {/* ── Visual RIGHT: actions (start in RTL) ── */}
         <div className="flex items-center gap-1.5 justify-self-start">
-          {/* Mobile menu toggle */}
-          <button
-            type="button"
-            onClick={onMenuToggle}
-            className={cn(
-              'lg:hidden p-2.5 rounded-lg',
-              'text-capture-metallic hover:text-capture-glow',
-              'hover:bg-capture-card/60 hover:shadow-glow-sm',
-              'transition-all duration-200',
-            )}
-            aria-label="فتح القائمة"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
+          {showMenu && (
+            <button
+              type="button"
+              onClick={onMenuClick}
+              className={cn(
+                'lg:hidden p-2.5 rounded-lg',
+                'text-capture-metallic hover:text-capture-glow',
+                'hover:bg-capture-card/60 hover:shadow-glow-sm',
+                'transition-all duration-200',
+              )}
+              aria-label={t('navbar.openMenu')}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
 
           {/* Notifications — WebSocket simulation via NotificationContext */}
           <NotificationBell onOpenChange={(isOpen) => { if (isOpen) setProfileOpen(false); }} />
@@ -120,7 +124,7 @@ export default function Navbar({ onMenuToggle, searchQuery = '', onSearchChange 
                   <p className="text-xs text-slate-400 truncate">{user?.email}</p>
                   {role && (
                     <span className="inline-block mt-1.5 px-2 py-0.5 text-[10px] font-medium rounded-full bg-capture-primary/15 text-capture-glow border border-capture-primary/25">
-                      {ROLE_LABELS[role] ?? role}
+                      {getRoleLabel(role, language)}
                     </span>
                   )}
                 </div>
@@ -131,7 +135,7 @@ export default function Navbar({ onMenuToggle, searchQuery = '', onSearchChange 
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-capture-surface/60 hover:text-capture-glow transition-colors"
                 >
                   <Settings className="w-4 h-4 text-capture-metallic" />
-                  الإعدادات
+                  {t('navbar.settings')}
                 </button>
 
                 <button
@@ -140,7 +144,7 @@ export default function Navbar({ onMenuToggle, searchQuery = '', onSearchChange 
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-capture-danger hover:bg-capture-danger/10 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
-                  تسجيل الخروج
+                  {t('navbar.logout')}
                 </button>
               </div>
             )}
@@ -155,7 +159,7 @@ export default function Navbar({ onMenuToggle, searchQuery = '', onSearchChange 
               type="search"
               value={localSearch}
               onChange={handleSearch}
-              placeholder="بحث عن مركبة، لوحة، سائق..."
+              placeholder={t('navbar.searchPlaceholder')}
               className={cn(
                 'w-full ps-10 pe-4 py-2 rounded-lg text-sm',
                 'bg-capture-bg/60 border border-slate-600/30',
@@ -179,7 +183,7 @@ export default function Navbar({ onMenuToggle, searchQuery = '', onSearchChange 
             <p className="text-sm font-bold text-slate-100 leading-tight truncate hidden md:block">
               CAPTURE <span className="text-capture-glow">GPS</span>
             </p>
-            <p className="text-[10px] text-capture-metallic hidden lg:block">نظام تتبع الأسطول</p>
+            <p className="text-[10px] text-capture-metallic hidden lg:block">{t('app.subtitle')}</p>
           </div>
         </div>
       </div>

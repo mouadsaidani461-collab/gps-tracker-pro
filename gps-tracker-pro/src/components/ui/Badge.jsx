@@ -1,4 +1,5 @@
 import { VEHICLE_STATUS_LABELS } from '../../utils/constants';
+import { useLocale } from '../../context/LocaleContext';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -77,9 +78,12 @@ export default function Badge({
 }
 
 export function StatusBadge({ status, ...props }) {
+  const { t } = useLocale();
+  const label = t(`vehicles.status.${status}`) || VEHICLE_STATUS_LABELS[status] || status;
+
   return (
     <Badge variant={status} dot pulse={status === 'alert' || status === 'moving'} {...props}>
-      {VEHICLE_STATUS_LABELS[status] ?? status}
+      {label}
     </Badge>
   );
 }

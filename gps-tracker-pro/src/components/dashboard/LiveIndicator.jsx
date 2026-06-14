@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { SIMULATION } from '../../utils/constants';
-import { formatRelativeTime, formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
+import { useLocale } from '../../context/LocaleContext';
+import { useFormatters } from '../../hooks/useFormatters';
+import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -11,6 +13,8 @@ export default function LiveIndicator({
   interval = SIMULATION.vehicleUpdateInterval,
   lastUpdate,
 }) {
+  const { t } = useLocale();
+  const { formatRelativeTime } = useFormatters();
   const [secondsAgo, setSecondsAgo] = useState(0);
 
   useEffect(() => {
@@ -49,7 +53,7 @@ export default function LiveIndicator({
       </span>
 
       <span className={isLive ? 'text-capture-glow' : 'text-slate-500'}>
-        {isLive ? 'مباشر' : 'متوقف'}
+        {isLive ? t('dashboard.live') : t('dashboard.stopped')}
       </span>
 
       <span className="text-slate-500">·</span>
@@ -58,22 +62,22 @@ export default function LiveIndicator({
         {lastUpdate ? (
           secondsAgo < 60 ? (
             <>
-              {'منذ '}
+              {t('time.prefixAgo')}{' '}
               <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
                 {formatNumber(secondsAgo, { maximumFractionDigits: 0 })}
               </span>
-              {' ث'}
+              {' '}{t('time.secondShort')}
             </>
           ) : (
             formatRelativeTime(lastUpdate)
           )
         ) : (
           <>
-            {'كل '}
+            {t('time.prefixEvery')}{' '}
             <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
               {formatNumber(interval / 1000, { maximumFractionDigits: 0 })}
             </span>
-            {' ث'}
+            {' '}{t('time.secondShort')}
           </>
         )}
       </span>

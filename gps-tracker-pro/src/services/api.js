@@ -2,7 +2,19 @@
  * Traccar REST client — session cookie auth (credentials: include)
  */
 
+import { getCsrfHeaders } from '../utils/csrf';
+
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+
+export const UNAUTHORIZED_EVENT = 'capture:unauthorized';
+
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function dispatchUnauthorized() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
+  }
+}
 
 export function apiUrl(path) {
   const normalized = path.startsWith('/') ? path : `/${path}`;
@@ -18,8 +30,13 @@ export class ApiError extends Error {
 }
 
 export async function fetchApi(path, options = {}) {
+  const method = (options.method || 'GET').toUpperCase();
   const { headers: customHeaders, body, ...rest } = options;
   const headers = { ...customHeaders };
+
+  if (MUTATING_METHODS.has(method)) {
+    Object.assign(headers, getCsrfHeaders());
+  }
 
   if (
     body
@@ -40,6 +57,9 @@ export async function fetchApi(path, options = {}) {
   });
 
   if (!response.ok) {
+    if (response.status === 401 && path !== '/session') {
+      dispatchUnauthorized();
+    }
     const text = await response.text();
     throw new ApiError(text || response.statusText, response.status);
   }

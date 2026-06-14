@@ -1,13 +1,16 @@
-# Capture Tracking GPS — production stack
+# Capture Tracking GPS — local dev stack (separate from docker-compose.production.yml)
 #
 # Usage:
 #   cd gps-tracker-pro
-#   docker compose --env-file .env.production up --build -d
+#   cp .env.example .env   # fill ADMIN_* and TRACCAR_SERVICE_TOKEN
+#   docker compose up -d --build
 #
-# App UI:     http://localhost:3001 (FRONTEND_PORT)
+# App UI:     http://localhost:3000 (FRONTEND_PORT)
 # Traccar UI: http://localhost:8082
 #
 # Optional MySQL: docker compose --profile mysql up --build -d
+
+name: gps-tracker-pro-dev
 
 services:
   frontend:
@@ -19,7 +22,7 @@ services:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
         VITE_MAP_TILE_URL: ${VITE_MAP_TILE_URL:-https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png}
     image: capture-tracking-gps:latest
-    container_name: capture-tracking-gps
+    container_name: capture-gps-dev-frontend
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-3000}:80"
@@ -37,27 +40,20 @@ services:
 
   traccar:
     image: traccar/traccar:latest
-    container_name: traccar
+    container_name: traccar-dev
     restart: unless-stopped
     environment:
       CONFIG_USE_ENVIRONMENT_VARIABLES: "true"
-      WEB_REGISTRATION: "true"
+      WEB_REGISTRATION: "false"
       WEB_SERVICE_ACCOUNT_TOKEN: ${TRACCAR_SERVICE_TOKEN:?Set TRACCAR_SERVICE_TOKEN in .env}
-      # Optional MySQL (docker compose --profile mysql up — see docker/traccar.xml)
-      MYSQL_HOST: ${MYSQL_HOST:-}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-traccar}
-      MYSQL_USER: ${MYSQL_USER:-traccar}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-}
     volumes:
       - traccar-data:/opt/traccar
       - ./docker/traccar.xml:/opt/traccar/conf/traccar.xml:ro
-      - ./scripts/traccar-dev-entrypoint.sh:/entrypoint.sh:ro
-    entrypoint: ["/bin/sh", "/entrypoint.sh"]
     expose:
       - "8082"
     ports:
       - "${TRACCAR_HTTP_PORT:-8082}:8082"
-      - "5023:5023"
+      - "${GPS_DEVICE_PORT:-5024}:5023"
     depends_on:
       database:
         condition: service_healthy
@@ -67,7 +63,7 @@ services:
 
   traccar-init:
     image: curlimages/curl:8.12.1
-    container_name: traccar-init
+    container_name: traccar-dev-init
     depends_on:
       traccar:
         condition: service_started

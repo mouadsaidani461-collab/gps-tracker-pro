@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { X } from 'lucide-react';
+import { useLocale } from '../../context/LocaleContext';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -12,6 +13,7 @@ export default function MobileDrawer({
   title,
   width = 'w-72',
 }) {
+  const { t } = useLocale();
   const handleEscape = useCallback(
     (e) => {
       if (e.key === 'Escape') onClose?.();
@@ -60,7 +62,7 @@ export default function MobileDrawer({
         )}
         role="dialog"
         aria-modal="true"
-        aria-label={title ?? 'القائمة'}
+        aria-label={title ?? t('drawer.menu')}
         aria-hidden={!open}
       >
         {/* Drawer header with close button */}
@@ -77,7 +79,7 @@ export default function MobileDrawer({
               'hover:bg-capture-card/60 hover:shadow-glow-sm',
               'transition-all duration-200',
             )}
-            aria-label="إغلاق القائمة"
+            aria-label={t('drawer.closeMenu')}
           >
             <X className="w-5 h-5" />
           </button>

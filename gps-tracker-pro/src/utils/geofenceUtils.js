@@ -138,14 +138,20 @@ export function isPolygonGeofence(geofence) {
   return geofence?.type === GEOFENCE_TYPES.POLYGON;
 }
 
-export function geofenceSummary(geofence, formatNumber) {
+export function geofenceSummary(geofence, formatNumber, t) {
   if (isPolygonGeofence(geofence)) {
     const count = geofence.coordinates?.length ?? 0;
-    return `مضلع · ${formatNumber(count)} نقاط`;
+    return t('geofence.summary.polygon', {
+      count: formatNumber(count, { maximumFractionDigits: 0 }),
+    });
   }
   const meters = geofence.radius ?? 0;
   if (meters >= 1000) {
-    return `دائرة · ${formatNumber(meters / 1000, { maximumFractionDigits: 1 })} كم`;
+    return t('geofence.summary.circleKm', {
+      radius: formatNumber(meters / 1000, { maximumFractionDigits: 1 }),
+    });
   }
-  return `دائرة · ${formatNumber(meters)} م`;
+  return t('geofence.summary.circleM', {
+    radius: formatNumber(meters, { maximumFractionDigits: 0 }),
+  });
 }

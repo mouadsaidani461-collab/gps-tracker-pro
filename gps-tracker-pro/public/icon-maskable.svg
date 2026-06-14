@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 64" fill="none" role="img" aria-label="Capture Tracking GPS">
+  <defs>
+    <!-- Metallic shield gradient -->
+    <linearGradient id="shield-metal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#e2e8f0"/>
+      <stop offset="35%"  stop-color="#94a3b8"/>
+      <stop offset="65%"  stop-color="#64748b"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+
+    <!-- Shield inner shadow -->
+    <linearGradient id="shield-inner" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%"   stop-color="#0f172a" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#020617" stop-opacity="0.9"/>
+    </linearGradient>
+
+    <!-- Cyan crosshair glow -->
+    <radialGradient id="crosshair-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#67e8f9" stop-opacity="0.9"/>
+      <stop offset="60%"  stop-color="#06b6d4" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Cyan ring -->
+    <linearGradient id="cyan-ring" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#67e8f9"/>
+      <stop offset="100%" stop-color="#0891b2"/>
+    </linearGradient>
+
+    <!-- Text metallic -->
+    <linearGradient id="text-metallic" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#f1f5f9"/>
+      <stop offset="50%"  stop-color="#94a3b8"/>
+      <stop offset="100%" stop-color="#64748b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ── Shield Icon ── -->
+  <g transform="translate(4, 4)">
+    <!-- Outer shield -->
+    <path
+      d="M28 2 L52 10 C52 10 54 38 28 54 C2 38 4 10 4 10 L28 2 Z"
+      fill="url(#shield-metal)"
+      stroke="#475569"
+      stroke-width="0.75"
+    />
+    <!-- Inner shield recess -->
+    <path
+      d="M28 8 L46 14 C46 14 47.5 36 28 48 C8.5 36 10 14 10 14 L28 8 Z"
+      fill="url(#shield-inner)"
+    />
+    <!-- Crosshair glow halo -->
+    <circle cx="28" cy="28" r="14" fill="url(#crosshair-glow)" opacity="0.5"/>
+    <!-- Target rings -->
+    <circle cx="28" cy="28" r="11" fill="none" stroke="url(#cyan-ring)" stroke-width="0.75" opacity="0.5"/>
+    <circle cx="28" cy="28" r="7"  fill="none" stroke="#06b6d4" stroke-width="0.75" opacity="0.7"/>
+    <circle cx="28" cy="28" r="3"  fill="#06b6d4"/>
+    <!-- Crosshair lines -->
+    <line x1="28" y1="14" x2="28" y2="22" stroke="#67e8f9" stroke-width="1.25" stroke-linecap="round"/>
+    <line x1="28" y1="34" x2="28" y2="42" stroke="#67e8f9" stroke-width="1.25" stroke-linecap="round"/>
+    <line x1="14" y1="28" x2="22" y2="28" stroke="#67e8f9" stroke-width="1.25" stroke-linecap="round"/>
+    <line x1="34" y1="28" x2="42" y2="28" stroke="#67e8f9" stroke-width="1.25" stroke-linecap="round"/>
+    <!-- Corner brackets (tech accent) -->
+    <path d="M16 18 L16 14 L20 14" stroke="#06b6d4" stroke-width="0.75" fill="none" opacity="0.6"/>
+    <path d="M40 18 L40 14 L36 14" stroke="#06b6d4" stroke-width="0.75" fill="none" opacity="0.6"/>
+    <path d="M16 38 L16 42 L20 42" stroke="#06b6d4" stroke-width="0.75" fill="none" opacity="0.6"/>
+    <path d="M40 38 L40 42 L36 42" stroke="#06b6d4" stroke-width="0.75" fill="none" opacity="0.6"/>
+  </g>
+
+  <!-- ── Wordmark ── -->
+  <text
+    x="72" y="28"
+    font-family="Inter, system-ui, sans-serif"
+    font-size="13"
+    font-weight="700"
+    letter-spacing="2.5"
+    fill="url(#text-metallic)"
+  >CAPTURE TRACKING</text>
+
+  <text
+    x="72" y="48"
+    font-family="Inter, system-ui, sans-serif"
+    font-size="18"
+    font-weight="800"
+    letter-spacing="4"
+    fill="#06b6d4"
+  >GPS</text>
+
+  <!-- Cyan underline accent -->
+  <rect x="72" y="52" width="48" height="2" rx="1" fill="url(#cyan-ring)" opacity="0.8"/>
+</svg>

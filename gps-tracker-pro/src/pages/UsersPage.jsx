@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { User, Shield, Mail, Plus, Pencil, Trash2, RefreshCw } from 'lucide-react';
 import { userApi } from '../services/traccarApi';
-import { useAuth, ROLE_LABELS } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
+import { useLocale } from '../context/LocaleContext';
+import { getRoleLabel } from '../utils/authRoles';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -21,12 +23,13 @@ const EMPTY_FORM = {
   disabled: false,
 };
 
-function mapUserRow(user) {
+function mapUserRow(user, language) {
+  const roleKey = user.administrator ? 'admin' : user.readonly ? 'viewer' : 'operator';
   return {
     id: user.id,
     name: user.name,
     email: user.email,
-    role: user.administrator ? 'مدير' : user.readonly ? 'مشاهد' : 'مشغّل',
+    role: getRoleLabel(roleKey, language),
     status: user.disabled ? 'inactive' : 'active',
     raw: user,
   };
@@ -34,6 +37,7 @@ function mapUserRow(user) {
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
+  const { dir, t, language } = useLocale();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,13 +52,13 @@ export default function UsersPage() {
     setError(null);
     try {
       const data = await userApi.list();
-      setUsers((data ?? []).map(mapUserRow));
+      setUsers((data ?? []).map((u) => mapUserRow(u, language)));
     } catch (err) {
-      setError(err.message || 'تعذّر تحميل المستخدمين');
+      setError(err.message || t('users.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [language, t]);
 
   useEffect(() => {
     loadUsers();
@@ -82,15 +86,15 @@ export default function UsersPage() {
   };
 
   const validateForm = () => {
-    if (!form.name.trim()) return 'الاسم مطلوب';
+    if (!form.name.trim()) return t('users.validation.nameRequired');
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      return 'البريد الإلكتروني غير صالح';
+      return t('users.validation.emailInvalid');
     }
     if (!editing && (!form.password || form.password.length < 6)) {
-      return 'كلمة المرور مطلوبة (6 أحرف على الأقل)';
+      return t('users.validation.passwordRequired');
     }
     if (form.password && form.password.length < 6) {
-      return 'كلمة المرور قصيرة جداً';
+      return t('users.validation.passwordShort');
     }
     return '';
   };
@@ -125,7 +129,7 @@ export default function UsersPage() {
       setModalOpen(false);
       await loadUsers();
     } catch (err) {
-      setFormError(err.message || 'تعذّر حفظ المستخدم');
+      setFormError(err.message || t('users.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -133,10 +137,10 @@ export default function UsersPage() {
 
   const handleDelete = async (row) => {
     if (String(row.id) === String(currentUser?.id)) {
-      setError('لا يمكنك حذف حسابك الحالي');
+      setError(t('users.cannotDeleteSelf'));
       return;
     }
-    if (!window.confirm(`حذف المستخدم «${row.name}»؟`)) return;
+    if (!window.confirm(t('users.deleteConfirm', { name: row.name }))) return;
 
     setSaving(true);
     setError(null);
@@ -144,7 +148,7 @@ export default function UsersPage() {
       await userApi.remove(row.id);
       await loadUsers();
     } catch (err) {
-      setError(err.message || 'تعذّر حذف المستخدم');
+      setError(err.message || t('users.deleteFailed'));
     } finally {
       setSaving(false);
     }
@@ -157,37 +161,37 @@ export default function UsersPage() {
   }), [users]);
 
   return (
-    <div dir="rtl" className="space-y-6">
+    <div dir={dir} className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">المستخدمون</h1>
-          <p className="text-capture-metallic text-sm mt-1">إدارة مستخدمي Traccar</p>
+          <h1 className="text-2xl font-bold text-slate-100">{t('users.pageTitle')}</h1>
+          <p className="text-capture-metallic text-sm mt-1">{t('users.pageSubtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" leftIcon={<RefreshCw className="w-4 h-4" />} onClick={loadUsers} loading={loading}>
-            تحديث
+            {t('common.refresh')}
           </Button>
           <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={openCreate}>
-            مستخدم جديد
+            {t('users.newUser')}
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
         <div className="capture-card p-4">
-          <p className="text-[10px] text-capture-metallic">الإجمالي</p>
+          <p className="text-[10px] text-capture-metallic">{t('users.total')}</p>
           <p className="text-2xl font-bold text-slate-100">
             <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(stats.total, { maximumFractionDigits: 0 })}</span>
           </p>
         </div>
         <div className="capture-card p-4">
-          <p className="text-[10px] text-capture-metallic">نشط</p>
+          <p className="text-[10px] text-capture-metallic">{t('users.active')}</p>
           <p className="text-2xl font-bold text-capture-glow">
             <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(stats.active, { maximumFractionDigits: 0 })}</span>
           </p>
         </div>
         <div className="capture-card p-4">
-          <p className="text-[10px] text-capture-metallic">مديرون</p>
+          <p className="text-[10px] text-capture-metallic">{t('users.admins')}</p>
           <p className="text-2xl font-bold text-slate-100">
             <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(stats.admins, { maximumFractionDigits: 0 })}</span>
           </p>
@@ -205,21 +209,21 @@ export default function UsersPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-capture-surface/60 border-b border-slate-600/25">
-                <th className="text-right px-4 py-3 font-semibold text-slate-300">المستخدم</th>
-                <th className="text-right px-4 py-3 font-semibold text-slate-300">البريد</th>
-                <th className="text-right px-4 py-3 font-semibold text-slate-300">الدور</th>
-                <th className="text-right px-4 py-3 font-semibold text-slate-300">الحالة</th>
-                <th className="text-right px-4 py-3 font-semibold text-slate-300">إجراءات</th>
+                <th className="text-start px-4 py-3 font-semibold text-slate-300">{t('users.columnUser')}</th>
+                <th className="text-start px-4 py-3 font-semibold text-slate-300">{t('users.columnEmail')}</th>
+                <th className="text-start px-4 py-3 font-semibold text-slate-300">{t('users.columnRole')}</th>
+                <th className="text-start px-4 py-3 font-semibold text-slate-300">{t('users.columnStatus')}</th>
+                <th className="text-start px-4 py-3 font-semibold text-slate-300">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-capture-metallic">جاري التحميل...</td>
+                  <td colSpan={5} className="px-4 py-10 text-center text-capture-metallic">{t('common.loading')}</td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-slate-500">لا يوجد مستخدمون</td>
+                  <td colSpan={5} className="px-4 py-10 text-center text-slate-500">{t('users.noUsers')}</td>
                 </tr>
               ) : (
                 users.map((user) => (
@@ -246,7 +250,7 @@ export default function UsersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={user.status === 'active' ? 'online' : 'offline'} dot>
-                        {user.status === 'active' ? 'نشط' : 'معطل'}
+                        {user.status === 'active' ? t('users.statusActive') : t('users.statusDisabled')}
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
@@ -255,7 +259,7 @@ export default function UsersPage() {
                           type="button"
                           onClick={() => openEdit(user)}
                           className="p-2 rounded-lg text-slate-400 hover:text-capture-glow hover:bg-capture-primary/10"
-                          title="تعديل"
+                          title={t('common.edit')}
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
@@ -269,7 +273,7 @@ export default function UsersPage() {
                               ? 'text-slate-600 cursor-not-allowed'
                               : 'text-rose-400 hover:bg-rose-500/10',
                           )}
-                          title="حذف"
+                          title={t('common.delete')}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -286,12 +290,12 @@ export default function UsersPage() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'تعديل مستخدم' : 'مستخدم جديد'}
-        description="بيانات المستخدم متزامنة مع Traccar"
+        title={editing ? t('users.editUser') : t('users.newUser')}
+        description={t('users.modalDescription')}
         footer={(
           <>
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>إلغاء</Button>
-            <Button variant="primary" onClick={handleSave} loading={saving}>حفظ</Button>
+            <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
+            <Button variant="primary" onClick={handleSave} loading={saving}>{t('common.saveShort')}</Button>
           </>
         )}
       >
@@ -300,18 +304,18 @@ export default function UsersPage() {
             <p className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">{formError}</p>
           )}
           <Input
-            label="الاسم"
+            label={t('users.nameLabel')}
             value={form.name}
             onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
           />
           <Input
-            label="البريد الإلكتروني"
+            label={t('users.emailLabel')}
             type="email"
             value={form.email}
             onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
           />
           <Input
-            label={editing ? 'كلمة مرور جديدة (اختياري)' : 'كلمة المرور'}
+            label={editing ? t('users.passwordNew') : t('users.passwordLabel')}
             type="password"
             value={form.password}
             onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
@@ -323,7 +327,7 @@ export default function UsersPage() {
               onChange={(e) => setForm((p) => ({ ...p, administrator: e.target.checked }))}
               className="accent-capture-primary"
             />
-            مدير النظام ({ROLE_LABELS.admin})
+            {t('users.adminRole')} ({getRoleLabel('admin', language)})
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input
@@ -332,7 +336,7 @@ export default function UsersPage() {
               onChange={(e) => setForm((p) => ({ ...p, readonly: e.target.checked }))}
               className="accent-capture-primary"
             />
-            للقراءة فقط
+            {t('users.readonly')}
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input
@@ -341,7 +345,7 @@ export default function UsersPage() {
               onChange={(e) => setForm((p) => ({ ...p, disabled: e.target.checked }))}
               className="accent-capture-primary"
             />
-            حساب معطل
+            {t('users.disabled')}
           </label>
         </div>
       </Modal>

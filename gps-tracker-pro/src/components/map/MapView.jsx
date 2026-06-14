@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import { MAP } from '../../utils/constants';
-import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
+import { useLocale } from '../../context/LocaleContext';
+import { formatNumber } from '../../utils/formatters';
 import { sameGeofenceId } from '../../utils/geofenceUtils';
 import VehicleMarker from './VehicleMarker';
 import RoutePolyline from './RoutePolyline';
@@ -36,6 +37,7 @@ export default function MapView({
   className = '',
   defaultLayer = 'dark',
 }) {
+  const { t } = useLocale();
   const [layer, setLayer] = useState(defaultLayer);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -45,19 +47,14 @@ export default function MapView({
   const drawBanner = (() => {
     switch (drawMode) {
       case 'create-circle':
-        return '📍 انقر على الخريطة لإنشاء دائرة';
+        return t('map.drawBanner.circle');
       case 'create-polygon':
-        return (
-          <>
-            📐 انقر لإضافة نقاط المضلع (
-            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(polygonDraft.length)}</span>
-            {' '}نقطة —{' '}
-            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(3)}</span>
-            {' '}على الأقل)
-          </>
-        );
+        return t('map.drawBanner.polygon', {
+          count: formatNumber(polygonDraft.length, { maximumFractionDigits: 0 }),
+          min: formatNumber(3, { maximumFractionDigits: 0 }),
+        });
       case 'reposition':
-        return '📍 انقر على موقع جديد لنقل مركز الدائرة';
+        return t('map.drawBanner.reposition');
       default:
         return null;
     }
@@ -110,7 +107,7 @@ export default function MapView({
           <PolygonDraftLayer points={polygonDraft} />
         )}
 
-        {vehicles.map((vehicle) => (
+        {vehicles.filter((vehicle) => vehicle.hasPosition).map((vehicle) => (
           <VehicleMarker
             key={vehicle.id}
             vehicle={vehicle}

@@ -4,9 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/check-traccar.mjs && vite",
+    "dev:skip-check": "vite",
+    "docker:backend": "docker compose up -d traccar traccar-init",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "vitest run",
     "preview": "vite preview",
     "docker:build": "docker build -t gps-tracker-pro:latest .",
     "docker:push": "docker push YOUR_DOCKERHUB_USERNAME/gps-tracker-pro:latest"
@@ -17,6 +20,8 @@
     "jspdf-autotable": "^5.0.8",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.17.0",
+    "otpauth": "^9.4.0",
+    "qrcode": "^1.5.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-leaflet": "^5.0.0",
@@ -27,6 +32,7 @@
     "@eslint/js": "^10.0.1",
     "@tailwindcss/postcss": "^4.3.0",
     "@tailwindcss/vite": "^4.3.0",
+    "@testing-library/react": "^16.3.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
@@ -34,7 +40,9 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "happy-dom": "^20.0.0",
     "tailwindcss": "^4.3.0",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vitest": "^4.0.0"
   }
 }

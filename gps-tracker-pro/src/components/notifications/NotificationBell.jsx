@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Bell, CheckCheck, Wifi, WifiOff } from 'lucide-react';
 import { useNotificationContext } from '../../context/NotificationContext';
+import { useLocale } from '../../context/LocaleContext';
 import NotificationItem, { isCriticalNotification } from './NotificationItem';
 import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
 
@@ -8,7 +9,6 @@ function cn(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
-/** Simulated critical alert sound via Web Audio API */
 function playCriticalSound() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -33,7 +33,7 @@ function playCriticalSound() {
 
     oscillator.onended = () => ctx.close();
   } catch {
-    // Silent fallback — sound is simulated best-effort
+    /* silent fallback */
   }
 }
 
@@ -48,6 +48,7 @@ function useClickOutside(ref, handler) {
 }
 
 export default function NotificationBell({ onOpenChange, className = '' }) {
+  const { t } = useLocale();
   const {
     notifications,
     unreadCount,
@@ -71,7 +72,6 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
     });
   }, [onOpenChange]);
 
-  // Play sound when new critical notifications arrive via WebSocket simulation
   useEffect(() => {
     const known = knownIdsRef.current;
     let played = false;
@@ -93,7 +93,6 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
 
   return (
     <div className={cn('relative', className)} ref={ref}>
-      {/* Bell button */}
       <button
         type="button"
         onClick={toggleOpen}
@@ -104,10 +103,9 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
           unreadCount > 0 && 'text-capture-glow',
           open && 'bg-capture-card/80 text-capture-glow shadow-glow-sm',
         )}
-        aria-label="الإشعارات"
+        aria-label={t('notifications.title')}
         aria-expanded={open}
       >
-        {/* Cyan glow ring when unread */}
         {unreadCount > 0 && (
           <span
             className="absolute inset-0 rounded-lg bg-capture-primary/10 animate-pulse-glow pointer-events-none"
@@ -122,7 +120,6 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
           )}
         />
 
-        {/* Unread badge */}
         {unreadCount > 0 && (
           <span
             className={cn(
@@ -135,7 +132,6 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
           </span>
         )}
 
-        {/* WebSocket connection indicator */}
         <span
           className={cn(
             'absolute bottom-1 end-1 z-20 w-1.5 h-1.5 rounded-full',
@@ -143,12 +139,11 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
               ? 'bg-capture-success shadow-[0_0_4px_rgba(16,185,129,0.8)]'
               : 'bg-slate-500',
           )}
-          title={isConnected ? 'متصل — WebSocket' : wsState}
+          title={isConnected ? t('notifications.wsConnectedTitle') : wsState}
           aria-hidden="true"
         />
       </button>
 
-      {/* Dropdown */}
       {open && (
         <div
           className={cn(
@@ -160,10 +155,9 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
             'z-50',
           )}
         >
-          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-600/20">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-slate-100 text-sm">الإشعارات</h3>
+              <h3 className="font-semibold text-slate-100 text-sm">{t('notifications.title')}</h3>
               {unreadCount > 0 && (
                 <span className={cn(
                   'px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-capture-danger/20 text-capture-danger border border-capture-danger/30',
@@ -177,16 +171,15 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* WS status */}
               <span
                 className={cn(
                   'flex items-center gap-1 text-[10px]',
                   isConnected ? 'text-capture-success' : 'text-slate-500',
                 )}
-                title={isConnected ? 'WebSocket متصل' : 'WebSocket غير متصل'}
+                title={isConnected ? t('notifications.wsConnected') : t('notifications.wsDisconnected')}
               >
                 {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-                {isConnected ? 'مباشر' : 'غير متصل'}
+                {isConnected ? t('notifications.live') : t('notifications.offline')}
               </span>
 
               {unreadCount > 0 && (
@@ -196,18 +189,17 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
                   className="flex items-center gap-1 text-xs text-capture-glow hover:text-capture-primary transition-colors"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
-                  قراءة الكل
+                  {t('notifications.markAllRead')}
                 </button>
               )}
             </div>
           </div>
 
-          {/* List */}
           <div className="max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Bell className="w-8 h-8 text-slate-600 mb-2" />
-                <p className="text-sm text-slate-500">لا توجد إشعارات</p>
+                <p className="text-sm text-slate-500">{t('notifications.empty')}</p>
               </div>
             ) : (
               notifications.map((notif) => (
@@ -223,14 +215,12 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
             )}
           </div>
 
-          {/* Footer */}
           {notifications.length > 0 && (
             <div className="px-4 py-2 border-t border-slate-600/20 text-center">
               <p className="text-[10px] text-slate-500">
-                <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
-                  {formatNumber(notifications.length, { maximumFractionDigits: 0 })}
-                </span>
-                {' '}إشعار · تحديثات WebSocket مباشرة
+                {t('notifications.footer', {
+                  count: formatNumber(notifications.length, { maximumFractionDigits: 0 }),
+                })}
               </p>
             </div>
           )}

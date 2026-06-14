@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Map as MapIcon, Car, CircleDot } from 'lucide-react';
-import { formatCoordinates, NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
+import { useLocale } from '../context/LocaleContext';
+import { useFormatters } from '../hooks/useFormatters';
+import { NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
 import { useVehicles } from '../hooks/useVehicles';
 import { useGeofences } from '../hooks/useGeofences';
 import MapView from '../components/map/MapView';
@@ -12,14 +14,17 @@ function cn(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
-const SIDEBAR_TABS = [
-  { id: 'vehicles', label: 'المركبات', icon: Car },
-  { id: 'geofences', label: 'المناطق', icon: CircleDot },
+const SIDEBAR_TAB_IDS = [
+  { id: 'vehicles', labelKey: 'mapPage.tabVehicles', icon: Car },
+  { id: 'geofences', labelKey: 'mapPage.tabGeofences', icon: CircleDot },
 ];
 
 export default function MapPage() {
+  const { dir, t } = useLocale();
+  const { formatCoordinates } = useFormatters();
   const {
     vehicles,
+    positionedVehicles,
     filteredVehicles,
     selectedVehicle,
     selectedId,
@@ -76,13 +81,13 @@ export default function MapPage() {
   };
 
   return (
-    <div dir="rtl" className="relative -m-4 lg:-m-6 h-[calc(100vh-4rem)] flex flex-col">
+    <div dir={dir} className="relative -m-4 lg:-m-6 h-[calc(100vh-4rem)] flex flex-col">
       <div className="absolute top-4 start-4 z-[1001] flex items-center gap-3 pointer-events-none">
         <div className="pointer-events-auto flex items-center gap-2 px-3 py-2 rounded-lg bg-capture-card/90 backdrop-blur-md border border-slate-600/25 shadow-glow-sm">
           <MapIcon className="w-4 h-4 text-capture-glow" />
           <div>
-            <h1 className="text-sm font-bold text-slate-100">الخريطة</h1>
-            <p className="text-[10px] text-capture-metallic">تتبع الأسطول — المغرب 🇲🇦</p>
+            <h1 className="text-sm font-bold text-slate-100">{t('mapPage.title')}</h1>
+            <p className="text-[10px] text-capture-metallic">{t('mapPage.subtitle')}</p>
           </div>
         </div>
         <div className="pointer-events-auto">
@@ -109,7 +114,7 @@ export default function MapPage() {
 
       <div className="flex-1 min-h-0">
         <MapView
-          vehicles={vehicles}
+          vehicles={positionedVehicles}
           selectedId={selectedId}
           selectedVehicle={selectedVehicle}
           onSelectVehicle={(v) => {
@@ -140,7 +145,7 @@ export default function MapPage() {
         )}
       >
         <div className="flex items-center gap-1 px-3 py-2 border-b border-slate-600/20 shrink-0 mt-16">
-          {SIDEBAR_TABS.map(({ id, label, icon: Icon }) => (
+          {SIDEBAR_TAB_IDS.map(({ id, labelKey, icon: Icon }) => (
             <button
               key={id}
               type="button"
@@ -153,14 +158,14 @@ export default function MapPage() {
               )}
             >
               <Icon className="w-3.5 h-3.5" />
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </div>
 
         <div className="flex items-center justify-between px-4 py-2 border-b border-slate-600/20 shrink-0">
           <h2 className="text-sm font-semibold text-slate-200">
-            {sidebarTab === 'vehicles' ? 'المركبات' : 'المناطق الجغرافية'}
+            {sidebarTab === 'vehicles' ? t('mapPage.tabVehicles') : t('mapPage.geofencesTitle')}
           </h2>
           <div className="flex items-center gap-1">
             {sidebarTab === 'vehicles' && selectedVehicle && (
@@ -169,14 +174,14 @@ export default function MapPage() {
                 onClick={clearSelection}
                 className="text-[10px] text-capture-metallic hover:text-capture-glow px-2 py-1 rounded transition-colors"
               >
-                إلغاء
+                {t('mapPage.cancelSelection')}
               </button>
             )}
             <button
               type="button"
               onClick={() => setSidebarOpen(false)}
               className="p-1.5 rounded-lg text-capture-metallic hover:text-capture-glow hover:bg-capture-card/60 transition-colors lg:hidden"
-              aria-label="إغلاق القائمة"
+              aria-label={t('mapPage.closeSidebar')}
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -240,7 +245,7 @@ export default function MapPage() {
             'border border-s-0 border-slate-600/30',
             'text-capture-glow hover:shadow-glow-sm transition-all',
           )}
-          aria-label="فتح القائمة"
+          aria-label={t('mapPage.openSidebar')}
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -257,7 +262,7 @@ export default function MapPage() {
           'transition-all duration-300',
           sidebarOpen ? 'start-[19.5rem]' : 'start-2',
         )}
-        aria-label={sidebarOpen ? 'إخفاء القائمة' : 'إظهار القائمة'}
+        aria-label={sidebarOpen ? t('mapPage.hideSidebar') : t('mapPage.showSidebar')}
       >
         {sidebarOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </button>

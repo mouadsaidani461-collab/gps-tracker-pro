@@ -13,6 +13,7 @@ import {
 } from 'react';
 import { sessionApi, userApi } from '../services/traccarApi';
 import { UNAUTHORIZED_EVENT } from '../services/api';
+import { initCsrfToken, clearCsrfToken } from '../utils/csrf';
 import { translate, getStoredLanguage } from '../i18n';
 import { APP_NAME } from '../utils/constants';
 
@@ -57,6 +58,7 @@ export function AuthProvider({ children }) {
     } catch {
       // session may already be gone
     }
+    clearCsrfToken();
     setUser(null);
     setError(null);
     if (reason === 'timeout' || reason === 'expired') {
@@ -80,6 +82,7 @@ export function AuthProvider({ children }) {
       try {
         const sessionUser = await sessionApi.get();
         if (!cancelled && sessionUser?.id) {
+          initCsrfToken();
           setUser(mapTraccarUser(sessionUser));
         }
       } catch {
@@ -123,6 +126,7 @@ export function AuthProvider({ children }) {
     try {
       const sessionUser = await sessionApi.login(email.trim(), password, code);
       const authUser = mapTraccarUser(sessionUser);
+      initCsrfToken();
       setUser(authUser);
       setLoading(false);
       return { success: true };

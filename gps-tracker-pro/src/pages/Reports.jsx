@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
-  Route, Gauge, Car, AlertTriangle, Download, Calendar,
+  Route, Gauge, Car, AlertTriangle, Download, Calendar, PauseCircle,
   ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight,
   FileSpreadsheet, FileText, Check,
 } from 'lucide-react';
@@ -10,9 +10,11 @@ import {
 } from 'recharts';
 import { useVehicles } from '../hooks/useVehicles';
 import { useReports } from '../hooks/useReports';
+import { useLocale } from '../context/LocaleContext';
+import { useFormatters } from '../hooks/useFormatters';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import { formatDistance, formatDuration, formatNumber, formatDate, NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
+import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
 import {
   exportFilename,
   formatReportRowForExport,
@@ -28,37 +30,23 @@ function cn(...classes) {
 
 // Report rows loaded from Traccar API via useReports
 
-const REPORT_TYPES = [
-  { id: 'trips', label: 'الرحلات', icon: Route, color: 'from-capture-primary/30 to-capture-primary/5', iconColor: 'text-capture-glow' },
-  { id: 'speed', label: 'السرعة', icon: Gauge, color: 'from-capture-warning/30 to-capture-warning/5', iconColor: 'text-capture-warning' },
-  { id: 'vehicles', label: 'المركبات', icon: Car, color: 'from-capture-success/30 to-capture-success/5', iconColor: 'text-capture-success' },
-  { id: 'alerts', label: 'التنبيهات', icon: AlertTriangle, color: 'from-capture-danger/30 to-capture-danger/5', iconColor: 'text-capture-danger' },
+const REPORT_TYPE_META = [
+  { id: 'trips', icon: Route, color: 'from-capture-primary/30 to-capture-primary/5', iconColor: 'text-capture-glow' },
+  { id: 'stops', icon: PauseCircle, color: 'from-violet-500/30 to-violet-500/5', iconColor: 'text-violet-300' },
+  { id: 'speed', icon: Gauge, color: 'from-capture-warning/30 to-capture-warning/5', iconColor: 'text-capture-warning' },
+  { id: 'vehicles', icon: Car, color: 'from-capture-success/30 to-capture-success/5', iconColor: 'text-capture-success' },
+  { id: 'alerts', icon: AlertTriangle, color: 'from-capture-danger/30 to-capture-danger/5', iconColor: 'text-capture-danger' },
 ];
 
-const DATE_PRESETS = [
-  { id: 'today', label: 'اليوم' },
-  { id: 'week', label: 'الأسبوع' },
-  { id: 'month', label: 'الشهر' },
-  { id: 'custom', label: 'مخصص' },
-];
+const DATE_PRESET_IDS = ['today', 'week', 'month', 'custom'];
 
 const STATUS_BADGE = {
-  completed: { variant: 'success', label: 'مكتمل' },
-  warning: { variant: 'warning', label: 'تحذير' },
-  alert: { variant: 'danger', label: 'تنبيه' },
+  completed: { variant: 'success', labelKey: 'reports.status.completed' },
+  warning: { variant: 'warning', labelKey: 'reports.status.warning' },
+  alert: { variant: 'danger', labelKey: 'reports.status.alert' },
 };
 
-const PAGE_SIZE = 5;
-
-const COLUMNS = [
-  { key: 'vehicle', label: 'المركبة' },
-  { key: 'driver', label: 'السائق' },
-  { key: 'type', label: 'النوع' },
-  { key: 'date', label: 'التاريخ' },
-  { key: 'distance', label: 'المسافة (كم)' },
-  { key: 'duration', label: 'المدة (س)' },
-  { key: 'status', label: 'الحالة' },
-];
+const COLUMN_KEYS = ['vehicle', 'driver', 'type', 'date', 'distance', 'duration', 'status'];
 
 const CHART_COLORS = {
   primary: '#06b6d4',
@@ -74,10 +62,12 @@ function formatDateStr(d) {
   return d.toISOString().split('T')[0];
 }
 
+const PAGE_SIZE = 5;
+
 /** ISO date key (YYYY-MM-DD) → localized display with Western digits */
-function formatReportDateKey(dateKey, options = {}) {
+function formatReportDateKey(dateKey, formatDateFn, options = {}) {
   if (!dateKey) return '—';
-  return formatDate(`${dateKey}T00:00:00`, {
+  return formatDateFn(`${dateKey}T00:00:00`, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -110,9 +100,10 @@ function getPresetRange(presetId) {
 }
 
 function CustomTooltip({ active, payload, label }) {
+  const { formatDate } = useFormatters();
   if (!active || !payload?.length) return null;
   const dateLabel = /^\d{4}-\d{2}-\d{2}$/.test(label)
-    ? formatReportDateKey(label, { month: 'long', day: 'numeric', year: 'numeric' })
+    ? formatReportDateKey(label, formatDate, { month: 'long', day: 'numeric', year: 'numeric' })
     : label;
   return (
     <div className="bg-capture-card/95 backdrop-blur-md border border-slate-600/30 rounded-lg px-3 py-2 text-xs shadow-glow-sm">
@@ -132,6 +123,7 @@ function CustomTooltip({ active, payload, label }) {
 }
 
 function VehicleMultiSelect({ vehicles = [], selected, onChange }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -152,19 +144,19 @@ function VehicleMultiSelect({ vehicles = [], selected, onChange }) {
   };
 
   const labelContent = selected.length === 0
-    ? 'جميع المركبات'
+    ? t('reports.allVehicles')
     : selected.length === 1
       ? selected[0]
       : (
         <>
           <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(selected.length, { maximumFractionDigits: 0 })}</span>
-          {' '}مركبات
+          {' '}{t('reports.vehiclesCount')}
         </>
       );
 
   return (
     <div className="relative" ref={ref}>
-      <label className="block text-xs font-medium text-slate-400 mb-1.5">المركبات</label>
+      <label className="block text-xs font-medium text-slate-400 mb-1.5">{t('reports.vehicles')}</label>
       <button
         type="button"
         onClick={() => setOpen((p) => !p)}
@@ -187,14 +179,14 @@ function VehicleMultiSelect({ vehicles = [], selected, onChange }) {
               onClick={() => onChange([])}
               className="text-[10px] text-capture-glow hover:text-capture-primary"
             >
-              الكل
+              {t('common.all')}
             </button>
             <button
               type="button"
               onClick={() => onChange(vehicles.map((v) => v.plate))}
               className="text-[10px] text-capture-metallic hover:text-slate-300"
             >
-              تحديد الكل
+              {t('common.selectAll')}
             </button>
           </div>
           <div className="max-h-48 overflow-y-auto p-1">
@@ -230,6 +222,8 @@ function VehicleMultiSelect({ vehicles = [], selected, onChange }) {
 }
 
 export default function Reports() {
+  const { dir, t, language } = useLocale();
+  const { formatDate, formatDistance, formatDuration } = useFormatters();
   const { vehicles } = useVehicles();
   const weekRange = getPresetRange('week');
   const [selectedType, setSelectedType] = useState('trips');
@@ -243,8 +237,9 @@ export default function Reports() {
   const [exportMsg, setExportMsg] = useState(null);
 
   const selectedDeviceIds = useMemo(() => {
-    if (selectedVehiclePlates.length === 0) return vehicles.map((v) => v.deviceId ?? Number(v.id));
-    return vehicles
+    const fleet = vehicles ?? [];
+    if (selectedVehiclePlates.length === 0) return fleet.map((v) => v.deviceId ?? Number(v.id));
+    return fleet
       .filter((v) => selectedVehiclePlates.includes(v.plate))
       .map((v) => v.deviceId ?? Number(v.id));
   }, [vehicles, selectedVehiclePlates]);
@@ -281,11 +276,16 @@ export default function Reports() {
         return sortDir === 'asc' ? av - bv : bv - av;
       }
       return sortDir === 'asc'
-        ? String(av).localeCompare(String(bv), 'ar')
-        : String(bv).localeCompare(String(av), 'ar');
+        ? String(av).localeCompare(String(bv), language)
+        : String(bv).localeCompare(String(av), language);
     });
     return sorted;
-  }, [filteredData, sortKey, sortDir]);
+  }, [filteredData, sortKey, sortDir, language]);
+
+  const datePresets = useMemo(
+    () => DATE_PRESET_IDS.map((id) => ({ id, label: t(`reports.presets.${id}`) })),
+    [t],
+  );
 
   const totalPages = Math.max(1, Math.ceil(sortedData.length / PAGE_SIZE));
   const paginatedData = sortedData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -326,10 +326,18 @@ export default function Reports() {
       : <ChevronDown className="w-3.5 h-3.5 text-capture-glow" />;
   };
 
+  const columns = useMemo(
+    () => COLUMN_KEYS.map((key) => ({ key, label: t(`reports.columns.${key}`) })),
+    [t],
+  );
+
   const handleExport = async (format) => {
-    const headers = COLUMNS.map((c) => c.label);
+    const headers = columns.map((c) => c.label);
     const rows = sortedData.map((r) => {
-      const formatted = formatReportRowForExport(r, STATUS_BADGE[r.status]?.label);
+      const statusLabel = STATUS_BADGE[r.status]
+        ? t(STATUS_BADGE[r.status].labelKey)
+        : r.status;
+      const formatted = formatReportRowForExport(r, statusLabel);
       return [formatted.vehicle, formatted.driver, formatted.type, formatted.date, formatted.distance, formatted.duration, formatted.status];
     });
     const baseName = exportFilename(`capture-${selectedType}`, dateFrom, dateTo, format === 'excel' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv');
@@ -337,7 +345,7 @@ export default function Reports() {
     try {
       if (format === 'csv') {
         downloadBlob(rowsToCsv(headers, rows), 'text/csv;charset=utf-8;', baseName);
-        setExportMsg('تم تصدير CSV بنجاح');
+        setExportMsg(t('reports.exportCsv'));
       } else if (format === 'excel') {
         await exportReportExcel({
           sheetName: selectedType,
@@ -345,7 +353,7 @@ export default function Reports() {
           rows,
           filename: baseName.endsWith('.xlsx') ? baseName : `${baseName}.xlsx`,
         });
-        setExportMsg('تم تصدير Excel بنجاح');
+        setExportMsg(t('reports.exportExcel'));
       } else if (format === 'pdf') {
         await exportReportPdf({
           title: `Capture GPS — ${selectedType} (${dateFrom} → ${dateTo})`,
@@ -353,21 +361,21 @@ export default function Reports() {
           rows,
           filename: exportFilename(`capture-${selectedType}`, dateFrom, dateTo, 'pdf'),
         });
-        setExportMsg('تم تصدير PDF بنجاح');
+        setExportMsg(t('reports.exportPdf'));
       }
     } catch (err) {
-      setExportMsg(err?.message ?? 'فشل التصدير');
+      setExportMsg(err?.message ?? t('reports.exportFailed'));
     }
     setTimeout(() => setExportMsg(null), 3000);
   };
 
   return (
-    <div dir="rtl" className="space-y-6 animate-fade-in">
+    <div dir={dir} className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">التقارير</h1>
-          <p className="text-sm text-capture-metallic mt-1">تحليل بيانات الأسطول والرحلات</p>
+          <h1 className="text-2xl font-bold text-slate-100">{t('reports.title')}</h1>
+          <p className="text-sm text-capture-metallic mt-1">{t('reports.subtitle')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {exportMsg && (
@@ -390,19 +398,19 @@ export default function Reports() {
       {error && (
         <div className="px-4 py-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-sm text-rose-300 flex items-center justify-between gap-3">
           <span>{error}</span>
-          <Button variant="secondary" size="sm" onClick={refetch}>إعادة المحاولة</Button>
+          <Button variant="secondary" size="sm" onClick={refetch}>{t('common.retry')}</Button>
         </div>
       )}
 
       {loading && (
         <div className="px-4 py-3 rounded-lg bg-capture-primary/10 border border-capture-primary/20 text-sm text-capture-glow">
-          جاري تحميل التقرير من Traccar...
+          {t('reports.loadingReport')}
         </div>
       )}
 
       {/* Report type cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {REPORT_TYPES.map(({ id, label, icon: Icon, color, iconColor }) => (
+        {REPORT_TYPE_META.map(({ id, icon: Icon, color, iconColor }) => (
           <button
             key={id}
             type="button"
@@ -417,14 +425,14 @@ export default function Reports() {
             <div className={cn('w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center mb-3', color)}>
               <Icon className={cn('w-5 h-5', iconColor)} />
             </div>
-            <p className="font-semibold text-slate-100 text-sm">{label}</p>
+            <p className="font-semibold text-slate-100 text-sm">{t(`reports.types.${id}`)}</p>
             <p className="text-[10px] text-slate-500 mt-0.5" dir="ltr">
               {selectedType === id ? (
                 <>
                   <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
                     {formatNumber(reportRows?.length ?? 0, { maximumFractionDigits: 0 })}
                   </span>
-                  {' '}سجل
+                  {' '}{t('common.records')}
                 </>
               ) : '—'}
             </p>
@@ -439,10 +447,10 @@ export default function Reports() {
           <div>
             <label className="block text-xs font-medium text-slate-400 mb-1.5">
               <Calendar className="w-3.5 h-3.5 inline ms-1" />
-              الفترة
+              {t('reports.period')}
             </label>
             <div className="flex flex-wrap gap-1">
-              {DATE_PRESETS.map(({ id, label }) => (
+              {datePresets.map(({ id, label }) => (
                 <button
                   key={id}
                   type="button"
@@ -464,7 +472,7 @@ export default function Reports() {
           {datePreset === 'custom' && (
             <>
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">من</label>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">{t('reports.from')}</label>
                 <input
                   type="date"
                   lang="en-US"
@@ -475,7 +483,7 @@ export default function Reports() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">إلى</label>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">{t('reports.to')}</label>
                 <input
                   type="date"
                   lang="en-US"
@@ -491,11 +499,11 @@ export default function Reports() {
           {datePreset !== 'custom' && (
             <p className="text-xs text-slate-500 pb-2">
               <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
-                {formatReportDateKey(dateFrom)}
+                {formatReportDateKey(dateFrom, formatDate)}
               </span>
               {' → '}
               <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
-                {formatReportDateKey(dateTo)}
+                {formatReportDateKey(dateTo, formatDate)}
               </span>
             </p>
           )}
@@ -511,14 +519,14 @@ export default function Reports() {
       {/* Charts */}
       <div className="grid lg:grid-cols-2 gap-4">
         <div className="capture-card p-4">
-          <h3 className="text-sm font-semibold text-slate-200 mb-4">اتجاه المسافة اليومية</h3>
+          <h3 className="text-sm font-semibold text-slate-200 mb-4">{t('reports.dailyTrend')}</h3>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={chartTrendData}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
               <XAxis
                 dataKey="date"
                 tick={{ fill: CHART_COLORS.text, fontSize: 10 }}
-                tickFormatter={(d) => formatReportDateKey(d, { month: 'short', day: 'numeric' })}
+                tickFormatter={(d) => formatReportDateKey(d, formatDate, { month: 'short', day: 'numeric' })}
                 axisLine={false}
                 tickLine={false}
               />
@@ -533,7 +541,7 @@ export default function Reports() {
               <Line
                 type="monotone"
                 dataKey="distance"
-                name="مسافة (كم)"
+                name={t('reports.distanceKm')}
                 stroke={CHART_COLORS.primary}
                 strokeWidth={2}
                 dot={{ fill: CHART_COLORS.glow, r: 4 }}
@@ -544,7 +552,7 @@ export default function Reports() {
         </div>
 
         <div className="capture-card p-4">
-          <h3 className="text-sm font-semibold text-slate-200 mb-4">المسافة حسب المركبة</h3>
+          <h3 className="text-sm font-semibold text-slate-200 mb-4">{t('reports.distanceByVehicle')}</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={chartBarData}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
@@ -558,7 +566,7 @@ export default function Reports() {
               <Tooltip content={<CustomTooltip />} />
               <Bar
                 dataKey="total"
-                name="مسافة (كم)"
+                name={t('reports.distanceKm')}
                 fill={CHART_COLORS.primary}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={48}
@@ -572,13 +580,13 @@ export default function Reports() {
       <div className="capture-card overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-600/20 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-200">
-            نتائج التقرير
+            {t('reports.results')}
             <span className="text-capture-metallic font-normal ms-2">
               (
               <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
                 {formatNumber(sortedData.length, { maximumFractionDigits: 0 })}
               </span>
-              {' '}سجل)
+              {' '}{t('common.records')})
             </span>
           </h3>
         </div>
@@ -587,7 +595,7 @@ export default function Reports() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-600/20 bg-capture-bg/40">
-                {COLUMNS.map(({ key, label }) => (
+                {columns.map(({ key, label }) => (
                   <th key={key} className="text-start px-4 py-3">
                     <button
                       type="button"
@@ -604,8 +612,8 @@ export default function Reports() {
             <tbody>
               {paginatedData.length === 0 ? (
                 <tr>
-                  <td colSpan={COLUMNS.length} className="text-center py-16 text-slate-500">
-                    لا توجد بيانات للفترة المحددة
+                  <td colSpan={columns.length} className="text-center py-16 text-slate-500">
+                    {t('reports.noData')}
                   </td>
                 </tr>
               ) : (
@@ -620,7 +628,7 @@ export default function Reports() {
                       <td className="px-4 py-3 text-slate-400">{row.driver}</td>
                       <td className="px-4 py-3 text-slate-400">{row.type}</td>
                       <td className="px-4 py-3 text-slate-400 font-mono text-xs">
-                        <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatReportDateKey(row.date)}</span>
+                        <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatReportDateKey(row.date, formatDate)}</span>
                       </td>
                       <td className="px-4 py-3 text-slate-300">
                         <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatDistance(row.distance)}</span>
@@ -629,7 +637,7 @@ export default function Reports() {
                         <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatDuration(row.duration)}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <Badge variant={badge.variant} size="sm">{badge.label}</Badge>
+                        <Badge variant={badge.variant} size="sm">{t(badge.labelKey)}</Badge>
                       </td>
                     </tr>
                   );
@@ -643,11 +651,11 @@ export default function Reports() {
         {sortedData.length > 0 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-600/20">
             <p className="text-xs text-slate-500">
-              صفحة{' '}
+              {t('common.page')}{' '}
               <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
                 {formatNumber(page, { maximumFractionDigits: 0 })}
               </span>
-              {' '}من{' '}
+              {' '}{t('common.of')}{' '}
               <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
                 {formatNumber(totalPages, { maximumFractionDigits: 0 })}
               </span>
@@ -661,7 +669,7 @@ export default function Reports() {
                   'p-2 rounded-lg transition-colors',
                   page <= 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-capture-surface/60 text-capture-glow',
                 )}
-                aria-label="الصفحة السابقة"
+                aria-label={t('common.previousPage')}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -688,7 +696,7 @@ export default function Reports() {
                   'p-2 rounded-lg transition-colors',
                   page >= totalPages ? 'opacity-40 cursor-not-allowed' : 'hover:bg-capture-surface/60 text-capture-glow',
                 )}
-                aria-label="الصفحة التالية"
+                aria-label={t('common.nextPage')}
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>

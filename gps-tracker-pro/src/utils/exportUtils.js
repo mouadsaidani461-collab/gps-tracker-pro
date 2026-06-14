@@ -4,6 +4,7 @@
 
 import {
   formatDate,
+  formatDateTime,
   formatDistance,
   formatDuration,
   formatFuel,
@@ -40,6 +41,19 @@ export function formatVehicleRowForExport(vehicle, statusLabel) {
     statusLabel ?? '',
     formatSpeed(vehicle.speed ?? 0),
     formatFuel(vehicle.fuel ?? 0),
+  ];
+}
+
+export function formatDeviceRowForExport(device) {
+  return [
+    device.name ?? '',
+    device.uniqueId ?? '',
+    device.groupName ?? '',
+    device.status ?? '',
+    device.lastUpdate ? formatDateTime(device.lastUpdate) : '—',
+    device.phone ?? '',
+    device.model ?? '',
+    device.contact ?? '',
   ];
 }
 

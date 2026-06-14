@@ -158,12 +158,12 @@ export const GEOFENCE_TYPES = {
 };
 
 export const MOROCCO_CITY_PRESETS = [
-  { name: 'الدار البيضاء', center: [33.5731, -7.5898] },
-  { name: 'الرباط', center: [34.0209, -6.8416] },
-  { name: 'مراكش', center: [31.6295, -7.9811] },
-  { name: 'فاس', center: [34.0181, -5.0078] },
-  { name: 'طنجة', center: [35.7595, -5.8340] },
-  { name: 'أكادير', center: [30.4278, -9.5981] },
+  { id: 'casablanca', center: [33.5731, -7.5898] },
+  { id: 'rabat', center: [34.0209, -6.8416] },
+  { id: 'marrakech', center: [31.6295, -7.9811] },
+  { id: 'fes', center: [34.0181, -5.0078] },
+  { id: 'tangier', center: [35.7595, -5.8340] },
+  { id: 'agadir', center: [30.4278, -9.5981] },
 ];
 
 // ── Localisation ──

@@ -110,7 +110,9 @@ export function SocketProvider({ children }) {
     };
   }, [isAuthenticated, clearReconnectTimeout, notifyListeners]);
 
-  connectSocketRef.current = connectSocket;
+  useEffect(() => {
+    connectSocketRef.current = connectSocket;
+  }, [connectSocket]);
 
   const disconnectSocket = useCallback(() => {
     clearReconnectTimeout();
