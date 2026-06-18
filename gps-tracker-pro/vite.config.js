@@ -46,6 +46,27 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: false,
+      chunkSizeWarningLimit: 500,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined;
+            if (/[/\\]node_modules[/\\](react|react-dom|react-router|react-router-dom)[/\\]/.test(id)) {
+              return 'vendor';
+            }
+            if (/[/\\]node_modules[/\\](leaflet|react-leaflet)[/\\]/.test(id)) {
+              return 'map';
+            }
+            if (/[/\\]node_modules[/\\]jspdf(-autotable)?[/\\]/.test(id)) {
+              return 'pdf';
+            }
+            if (/[/\\]node_modules[/\\]exceljs[/\\]/.test(id)) {
+              return 'excel';
+            }
+            return undefined;
+          },
+        },
+      },
     },
   };
 });

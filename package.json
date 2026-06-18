@@ -39,6 +39,11 @@
   },
   "scripts": {
     "dev": "npm run dev --prefix gps-tracker-pro",
+    "test": "npm run test --prefix gps-tracker-pro",
+    "test:coverage": "npm run test:coverage --prefix gps-tracker-pro",
+    "test:e2e": "npm run test:e2e --prefix gps-tracker-pro",
+    "docker:init": "npm run docker:init --prefix gps-tracker-pro",
+    "docker:up": "npm run docker:up --prefix gps-tracker-pro",
     "start": "vite --host",
     "build": "vite build",
     "generate-pwa-assets": "pwa-assets-generator --preset minimal public/logo.svg",

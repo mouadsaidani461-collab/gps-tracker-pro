@@ -22,10 +22,11 @@ export function apiUrl(path) {
 }
 
 export class ApiError extends Error {
-  constructor(message, status) {
+  constructor(message, status, { totpRequired = false } = {}) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.totpRequired = totpRequired;
   }
 }
 
@@ -57,11 +58,17 @@ export async function fetchApi(path, options = {}) {
   });
 
   if (!response.ok) {
-    if (response.status === 401 && path !== '/session') {
+    const totpRequired = path === '/session'
+      && method === 'POST'
+      && response.status === 401
+      && response.headers.get('WWW-Authenticate') === 'TOTP';
+
+    if ((response.status === 401 || response.status === 403) && path !== '/session') {
       dispatchUnauthorized();
     }
+
     const text = await response.text();
-    throw new ApiError(text || response.statusText, response.status);
+    throw new ApiError(text || response.statusText, response.status, { totpRequired });
   }
 
   if (response.status === 204) {

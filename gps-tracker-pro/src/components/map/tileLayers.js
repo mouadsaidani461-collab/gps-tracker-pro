@@ -1,6 +1,9 @@
+const DEFAULT_DARK_TILE_URL = import.meta.env.VITE_MAP_TILE_URL
+  || 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
 export const TILE_LAYERS = {
   dark: {
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    url: DEFAULT_DARK_TILE_URL,
     attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
   },
   street: {

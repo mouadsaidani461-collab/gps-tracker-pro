@@ -1,6 +1,8 @@
 # Edge reverse proxy — SSL termination (generated from template)
 # Render: DOMAIN=gps-tracker-pro.ma ./scripts/render-edge-conf.sh
 
+limit_req_zone $binary_remote_addr zone=login_limit:10m rate=5r/m;
+
 upstream capture_frontend {
     server frontend:80;
     keepalive 8;
@@ -36,6 +38,32 @@ server {
     include /etc/nginx/snippets/security-headers.conf;
 
     client_max_body_size 10m;
+
+    location = /api/session {
+        limit_req zone=login_limit burst=2 nodelay;
+
+        proxy_pass http://capture_frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Connection "";
+        proxy_read_timeout 86400s;
+    }
+
+    location /api/ {
+        include /etc/nginx/snippets/csrf.conf;
+
+        proxy_pass http://capture_frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Connection "";
+        proxy_read_timeout 86400s;
+    }
 
     location / {
         proxy_pass http://capture_frontend;

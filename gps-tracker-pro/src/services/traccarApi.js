@@ -1,4 +1,5 @@
-import { fetchApi } from './api';
+import { fetchApi, apiUrl, ApiError } from './api';
+import { getCsrfHeaders } from '../utils/csrf';
 
 export const sessionApi = {
   get: () => fetchApi('/session').catch((err) => {
@@ -91,4 +92,36 @@ export const reportApi = {
   events: (query) => fetchApi(`/reports/events?${buildReportQuery(query)}`),
   summary: (query) => fetchApi(`/reports/summary?${buildReportQuery(query)}`),
   stops: (query) => fetchApi(`/reports/stops?${buildReportQuery(query)}`),
+};
+
+/** Traccar native TOTP — secret stored server-side on user.totpKey (never in client state). */
+export const totpApi = {
+  /** POST /api/users/totp → Base32 secret (plain text). */
+  generateSecret: async () => {
+    const response = await fetch(apiUrl('/users/totp'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { ...getCsrfHeaders() },
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new ApiError(text || response.statusText, response.status);
+    }
+    return response.text();
+  },
+
+  /** Enable TOTP: PUT /api/users/{id} with totpKey (Traccar persists server-side). */
+  enable: async (userId, secret) => {
+    const current = await userApi.get(userId);
+    return userApi.update(userId, { ...current, totpKey: secret });
+  },
+
+  /** Disable TOTP: clear totpKey on user record. */
+  disable: async (userId) => {
+    const current = await userApi.get(userId);
+    return userApi.update(userId, { ...current, totpKey: null });
+  },
+
+  /** Login step 2 — POST /api/session with email, password, code. */
+  verifySession: (email, password, code) => sessionApi.login(email, password, code),
 };

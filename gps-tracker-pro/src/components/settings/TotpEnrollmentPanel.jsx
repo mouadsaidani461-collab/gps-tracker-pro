@@ -1,12 +1,15 @@
 import { useState, useCallback } from 'react';
-import { ShieldCheck, Smartphone, Loader2 } from 'lucide-react';
+import { ShieldCheck, Smartphone, Loader2, ShieldOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
 import { totpApi } from '../../services/traccarApi';
 import { buildTotpAuthUrl, verifyTotpCode, generateQrDataUrl } from '../../utils/totp';
 import { isTwoFactorLocked } from '../../utils/userAttributes';
+import { ROLES } from '../../utils/authRoles';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
+
+const ENROLL_ROLES = new Set([ROLES.ADMIN, ROLES.OPERATOR]);
 
 export default function TotpEnrollmentPanel() {
   const { user, refreshUser, updateProfile } = useAuth();
@@ -19,6 +22,7 @@ export default function TotpEnrollmentPanel() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const canEnroll = ENROLL_ROLES.has(user?.role);
   const locked = isTwoFactorLocked(user);
 
   const startEnrollment = useCallback(async () => {
@@ -48,7 +52,7 @@ export default function TotpEnrollmentPanel() {
 
     setLoading(true);
     try {
-      await updateProfile({ totpKey: pendingSecret });
+      await updateProfile({ totpKey: pendingSecret, totpEnabled: true });
       await refreshUser();
       setStep('enabled');
       setPendingSecret('');
@@ -61,14 +65,40 @@ export default function TotpEnrollmentPanel() {
     }
   }, [pendingSecret, verifyCode, updateProfile, refreshUser, t]);
 
+  const disableTotp = useCallback(async () => {
+    if (!user?.id) return;
+    setError('');
+    setLoading(true);
+    try {
+      await totpApi.disable(Number(user.id));
+      await refreshUser();
+      setStep('idle');
+    } catch (err) {
+      setError(err.message || t('settings.security.totpDisableFailed'));
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, refreshUser, t]);
+
+  if (!canEnroll) {
+    return null;
+  }
+
   if (locked || step === 'enabled') {
     return (
-      <div className="rounded-xl bg-capture-success/10 border border-capture-success/30 p-4 flex items-start gap-3">
-        <ShieldCheck className="w-5 h-5 text-capture-success shrink-0 mt-0.5" />
-        <div>
-          <p className="text-sm font-medium text-slate-200">{t('settings.security.twoFA')}</p>
-          <p className="text-xs text-slate-400 mt-1">{t('settings.security.twoFAActiveDesc')}</p>
+      <div className="rounded-xl bg-capture-success/10 border border-capture-success/30 p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <ShieldCheck className="w-5 h-5 text-capture-success shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-slate-200">{t('settings.security.twoFA')}</p>
+            <p className="text-xs text-slate-400 mt-1">{t('settings.security.twoFAActiveDesc')}</p>
+          </div>
         </div>
+        <Button variant="secondary" size="sm" onClick={disableTotp} loading={loading}>
+          <ShieldOff className="w-4 h-4" />
+          {t('settings.security.totpDisable')}
+        </Button>
+        {error && <p className="text-xs text-capture-danger" role="alert">{error}</p>}
       </div>
     );
   }
@@ -79,7 +109,7 @@ export default function TotpEnrollmentPanel() {
         <Smartphone className="w-5 h-5 text-capture-glow shrink-0 mt-0.5" />
         <div>
           <p className="text-sm font-medium text-slate-200">{t('settings.security.twoFA')}</p>
-          <p className="text-xs text-slate-500 mt-0.5">{t('settings.security.twoFADesc')}</p>
+          <p className="text-xs text-slate-500 mt-0.5">{t('settings.security.twoFAEnrollDesc')}</p>
         </div>
       </div>
 
@@ -105,9 +135,6 @@ export default function TotpEnrollmentPanel() {
               height={200}
             />
           )}
-          <p className="text-[10px] text-slate-500 break-all font-mono text-center" dir="ltr">
-            {pendingSecret}
-          </p>
           <Input
             id="totp-verify-enroll"
             label={t('settings.security.totpVerifyLabel')}
@@ -119,7 +146,11 @@ export default function TotpEnrollmentPanel() {
             placeholder="000000"
           />
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" onClick={() => { setStep('idle'); setPendingSecret(''); }}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => { setStep('idle'); setPendingSecret(''); setQrDataUrl(''); }}
+            >
               {t('common.cancel')}
             </Button>
             <Button variant="primary" size="sm" onClick={confirmEnrollment} loading={loading}>

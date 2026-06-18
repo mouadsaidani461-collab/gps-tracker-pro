@@ -13,10 +13,10 @@ RUN npm ci
 
 COPY . .
 
-# Vite embeds VITE_* variables at build time
-ARG VITE_APP_NAME="Capture Tracking GPS"
-ARG VITE_API_BASE_URL="/api"
-ARG VITE_MAP_TILE_URL="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+# Vite embeds VITE_* variables at build time — set via docker build --build-arg
+ARG VITE_APP_NAME
+ARG VITE_API_BASE_URL=/api
+ARG VITE_MAP_TILE_URL
 
 ENV VITE_APP_NAME=$VITE_APP_NAME \
     VITE_API_BASE_URL=$VITE_API_BASE_URL \
@@ -37,6 +37,7 @@ LABEL org.opencontainers.image.title="Capture Tracking GPS" \
 RUN rm -f /etc/nginx/conf.d/default.conf
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/nginx/csrf.conf /etc/nginx/snippets/csrf.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 80

@@ -28,6 +28,7 @@ const AuthContext = createContext(null);
 
 function mapTraccarUser(user) {
   const role = resolveRoleFromTraccarUser(user);
+  const twoFactorEnabled = parseTwoFactorEnabled(user);
   return {
     id: String(user.id),
     name: user.name,
@@ -38,9 +39,8 @@ function mapTraccarUser(user) {
     avatar: null,
     readonly: user.readonly,
     administrator: user.administrator,
-    totpKey: user.totpKey ?? null,
     attributes: user.attributes ?? {},
-    twoFactorEnabled: parseTwoFactorEnabled(user),
+    twoFactorEnabled,
   };
 }
 
@@ -49,8 +49,10 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [needsTotpVerification, setNeedsTotpVerification] = useState(false);
 
   const idleTimerRef = useRef(null);
+  const pendingLoginRef = useRef({ email: '', password: '' });
 
   const logout = useCallback(async (reason = 'manual') => {
     try {
@@ -58,9 +60,11 @@ export function AuthProvider({ children }) {
     } catch {
       // session may already be gone
     }
-    clearCsrfToken();
+    await clearCsrfToken();
     setUser(null);
     setError(null);
+    setNeedsTotpVerification(false);
+    pendingLoginRef.current = { email: '', password: '' };
     if (reason === 'timeout' || reason === 'expired') {
       setSessionExpired(true);
     }
@@ -82,7 +86,7 @@ export function AuthProvider({ children }) {
       try {
         const sessionUser = await sessionApi.get();
         if (!cancelled && sessionUser?.id) {
-          initCsrfToken();
+          await initCsrfToken();
           setUser(mapTraccarUser(sessionUser));
         }
       } catch {
@@ -126,12 +130,20 @@ export function AuthProvider({ children }) {
     try {
       const sessionUser = await sessionApi.login(email.trim(), password, code);
       const authUser = mapTraccarUser(sessionUser);
-      initCsrfToken();
+      await initCsrfToken();
       setUser(authUser);
+      setNeedsTotpVerification(false);
+      pendingLoginRef.current = { email: '', password: '' };
       setLoading(false);
       return { success: true };
     } catch (err) {
       const lang = getStoredLanguage();
+      if (err.totpRequired && !code) {
+        pendingLoginRef.current = { email: email.trim(), password };
+        setNeedsTotpVerification(true);
+        setLoading(false);
+        return { success: false, totpRequired: true };
+      }
       const errMsg = err.status === 401
         ? translate(lang, 'login.invalidCredentials')
         : (err.message || translate(lang, 'login.failed'));
@@ -139,6 +151,20 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return { success: false, error: errMsg };
     }
+  }, []);
+
+  const verifyTotp = useCallback(async (code) => {
+    const { email, password } = pendingLoginRef.current;
+    if (!email || !password) {
+      return { success: false, error: translate(getStoredLanguage(), 'login.totpSessionExpired') };
+    }
+    return login(email, password, code);
+  }, [login]);
+
+  const cancelTotpVerification = useCallback(() => {
+    setNeedsTotpVerification(false);
+    pendingLoginRef.current = { email: '', password: '' };
+    setError(null);
   }, []);
 
   const clearSessionExpired = useCallback(() => setSessionExpired(false), []);
@@ -163,7 +189,9 @@ export function AuthProvider({ children }) {
     return sessionUser;
   }, []);
 
-  const updateProfile = useCallback(async ({ name, email, phone, password }) => {
+  const updateProfile = useCallback(async ({
+    name, email, phone, password, totpKey, totpEnabled,
+  }) => {
     if (!user?.id) throw new Error(translate(getStoredLanguage(), 'auth.noActiveSession'));
 
     const current = await sessionApi.get();
@@ -174,6 +202,8 @@ export function AuthProvider({ children }) {
       phone: phone?.trim() || null,
     };
     if (password) payload.password = password;
+    if (totpKey !== undefined) payload.totpKey = totpKey;
+    if (totpEnabled === false) payload.totpKey = null;
 
     const updated = await userApi.update(Number(user.id), payload);
     setUser(mapTraccarUser(updated));
@@ -194,9 +224,12 @@ export function AuthProvider({ children }) {
       loading,
       error,
       sessionExpired,
+      needsTotpVerification,
       isAuthenticated: !!user,
       role: user?.role ?? null,
       login,
+      verifyTotp,
+      cancelTotpVerification,
       logout: () => logout('manual'),
       refreshUser,
       updateProfile,
@@ -214,7 +247,10 @@ export function AuthProvider({ children }) {
       loading,
       error,
       sessionExpired,
+      needsTotpVerification,
       login,
+      verifyTotp,
+      cancelTotpVerification,
       logout,
       refreshUser,
       updateProfile,

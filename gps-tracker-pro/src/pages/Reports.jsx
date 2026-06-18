@@ -20,8 +20,6 @@ import {
   formatReportRowForExport,
   rowsToCsv,
   downloadBlob,
-  exportReportPdf,
-  exportReportExcel,
 } from '../utils/exportUtils';
 
 function cn(...classes) {
@@ -347,6 +345,7 @@ export default function Reports() {
         downloadBlob(rowsToCsv(headers, rows), 'text/csv;charset=utf-8;', baseName);
         setExportMsg(t('reports.exportCsv'));
       } else if (format === 'excel') {
+        const { exportReportExcel } = await import('../utils/exportReportHeavy');
         await exportReportExcel({
           sheetName: selectedType,
           headers,
@@ -355,6 +354,7 @@ export default function Reports() {
         });
         setExportMsg(t('reports.exportExcel'));
       } else if (format === 'pdf') {
+        const { exportReportPdf } = await import('../utils/exportReportHeavy');
         await exportReportPdf({
           title: `Capture GPS — ${selectedType} (${dateFrom} → ${dateTo})`,
           headers,

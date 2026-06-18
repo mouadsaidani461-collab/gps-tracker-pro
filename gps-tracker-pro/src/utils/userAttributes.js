@@ -9,6 +9,8 @@ export function parseTwoFactorEnabled(traccarUser) {
   return value === true || value === 'true';
 }
 
-export function isTwoFactorLocked(traccarUser) {
-  return Boolean(traccarUser?.totpKey);
+export function isTwoFactorLocked(user) {
+  if (!user) return false;
+  if (user.twoFactorEnabled === true) return true;
+  return Boolean(user.totpKey) || parseTwoFactorEnabled(user);
 }

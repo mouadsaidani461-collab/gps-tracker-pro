@@ -15,7 +15,8 @@ defaults:
     working-directory: gps-tracker-pro
 
 jobs:
-  quality:
+  test:
+    name: Unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,3 +38,57 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  coverage:
+    name: Coverage
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: gps-tracker-pro/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --fund false
+
+      - name: Coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: gps-tracker-pro/coverage/
+          retention-days: 14
+
+  e2e:
+    name: Playwright E2E
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: gps-tracker-pro/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --fund false
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build app for E2E
+        run: npm run build
+
+      - name: E2E tests
+        run: npm run test:e2e
+        env:
+          CI: true
+          PLAYWRIGHT_WEB_SERVER_COMMAND: 'npm run preview -- --host 127.0.0.1 --port 5173'

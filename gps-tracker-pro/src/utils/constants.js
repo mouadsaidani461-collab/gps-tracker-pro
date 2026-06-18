@@ -2,7 +2,7 @@
  * Capture Tracking GPS — Application Constants
  */
 
-export const APP_NAME = 'Capture Tracking GPS';
+export const APP_NAME = import.meta.env.VITE_APP_NAME || 'Capture Tracking GPS';
 export const APP_NAME_AR = 'كابتشر للتتبع GPS';
 export const APP_VERSION = '1.0.0';
 

@@ -19,7 +19,7 @@ import { COLORS } from '../utils/constants';
 import { NUMERIC_DISPLAY_CLASS, toWesternNumerals } from '../utils/formatters';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
-import { isTwoFactorLocked, USER_ATTR_CAPTURE_2FA } from '../utils/userAttributes';
+import TotpEnrollmentPanel from '../components/settings/TotpEnrollmentPanel';
 import NotificationDeviceFilter from '../components/settings/NotificationDeviceFilter';
 
 function cn(...classes) {
@@ -265,7 +265,7 @@ function validateSecurity(passwords, changing, t) {
 }
 
 export default function Settings() {
-  const { user, role, updateProfile, updateUserAttribute } = useAuth();
+  const { user, role, updateProfile } = useAuth();
   const { mode, accentColor, presets, setAccentColor, setThemeMode } = useTheme();
   const { isConnected, pushNotification } = useNotificationContext();
   const { language, setLanguage, t, languages } = useLocale();
@@ -295,9 +295,6 @@ export default function Settings() {
     ...stored.notifications,
   });
   const [soundEnabled, setSoundEnabled] = useState(stored.soundEnabled ?? true);
-  const [twoFA, setTwoFA] = useState(() => user?.twoFactorEnabled ?? false);
-  const [twoFALoading, setTwoFALoading] = useState(false);
-  const [twoFAError, setTwoFAError] = useState(null);
   const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
   const [customAccent, setCustomAccent] = useState(accentColor);
 
@@ -317,26 +314,7 @@ export default function Settings() {
       email: user.email ?? prev.email,
       phone: user.phone ?? prev.phone,
     }));
-    setTwoFA(user.twoFactorEnabled ?? false);
   }, [user]);
-
-  const twoFALocked = isTwoFactorLocked(user);
-
-  const handleTwoFAToggle = useCallback(async (next) => {
-    if (twoFALocked || twoFALoading) return;
-    setTwoFALoading(true);
-    setTwoFAError(null);
-    const previous = twoFA;
-    setTwoFA(next);
-    try {
-      await updateUserAttribute(USER_ATTR_CAPTURE_2FA, next);
-    } catch (err) {
-      setTwoFA(previous);
-      setTwoFAError(err.message || t('settings.security.twoFAFailed'));
-    } finally {
-      setTwoFALoading(false);
-    }
-  }, [twoFA, twoFALocked, twoFALoading, updateUserAttribute, t]);
 
   const changingPassword = passwords.current || passwords.next || passwords.confirm;
 
@@ -590,22 +568,7 @@ export default function Settings() {
             <div className="space-y-6 flex-1">
               <h2 className="font-semibold text-slate-100 text-lg">{t('settings.security.title')}</h2>
 
-              <div className="flex items-center justify-between py-4 px-4 rounded-xl bg-capture-bg/40 border border-slate-600/20">
-                <div>
-                  <p className="text-sm font-medium text-slate-200">{t('settings.security.twoFA')}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {twoFALocked ? t('settings.security.twoFAActiveDesc') : t('settings.security.twoFADesc')}
-                  </p>
-                  {twoFAError && (
-                    <p className="text-xs text-capture-danger mt-1">{twoFAError}</p>
-                  )}
-                </div>
-                <Toggle
-                  checked={twoFA}
-                  onChange={handleTwoFAToggle}
-                  disabled={twoFALocked || twoFALoading}
-                />
-              </div>
+              <TotpEnrollmentPanel />
 
               <div className="space-y-4">
                 <h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">

@@ -2,8 +2,8 @@
 #
 # Usage:
 #   cd gps-tracker-pro
-#   cp .env.example .env   # fill ADMIN_* and TRACCAR_SERVICE_TOKEN
-#   docker compose up -d --build
+#   cp .env.example .env && ./scripts/init-dev-env.sh
+#   docker compose --env-file .env up -d --build
 #
 # App UI:     http://localhost:3000 (FRONTEND_PORT)
 # Traccar UI: http://localhost:8082
@@ -18,9 +18,9 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VITE_APP_NAME: ${VITE_APP_NAME:-Capture Tracking GPS}
+        VITE_APP_NAME: ${VITE_APP_NAME}
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
-        VITE_MAP_TILE_URL: ${VITE_MAP_TILE_URL:-https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png}
+        VITE_MAP_TILE_URL: ${VITE_MAP_TILE_URL}
     image: capture-tracking-gps:latest
     container_name: capture-gps-dev-frontend
     restart: unless-stopped

@@ -40,6 +40,21 @@ load_secret_file CERTBOT_EMAIL secrets/certbot_email
 DOMAIN="${DOMAIN:-gps-tracker-pro.ma}"
 CERTBOT_EMAIL="${CERTBOT_EMAIL:-}"
 
+build_frontend_image() {
+  chmod +x scripts/validate-env.sh
+  ./scripts/validate-env.sh .env.production production
+
+  local tag="${IMAGE_TAG:-latest}"
+  echo "==> Building frontend image (VITE_APP_NAME=${VITE_APP_NAME})..."
+  docker build \
+    -f Dockerfile \
+    --build-arg "VITE_APP_NAME=${VITE_APP_NAME}" \
+    --build-arg "VITE_API_BASE_URL=${VITE_API_BASE_URL:-/api}" \
+    --build-arg "VITE_MAP_TILE_URL=${VITE_MAP_TILE_URL}" \
+    -t "capture-tracking-gps:${tag}" \
+    .
+}
+
 check_dns() {
   local resolved
   resolved=$(dig +short "$DOMAIN" A 2>/dev/null | head -1 || true)
@@ -66,22 +81,19 @@ persist_ssl_edge_config() {
 
 cmd_http() {
   echo "==> Pre-SSL HTTP deploy (edge.local.conf, test via http://<SERVER_IP>/)"
-  ./scripts/validate-production-secrets.sh .env.production
-  $COMPOSE up -d --build
+  build_frontend_image
+  $COMPOSE up -d --no-build
   cmd_verify
 }
 
 cmd_init() {
-  ./scripts/validate-production-secrets.sh .env.production
+  build_frontend_image
   check_dns
 
   if [ -z "$CERTBOT_EMAIL" ]; then
     echo "Set CERTBOT_EMAIL in .env.production"
     exit 1
   fi
-
-  echo "==> Building application image..."
-  $COMPOSE build frontend
 
   echo "==> Starting core services..."
   $COMPOSE up -d traccar
@@ -121,11 +133,11 @@ cmd_init() {
 }
 
 cmd_deploy() {
-  ./scripts/validate-production-secrets.sh .env.production
+  build_frontend_image
   if [ -f docker/nginx/edge.conf.template ] && [ ! -f docker/nginx/edge.conf ]; then
     ./scripts/render-edge-conf.sh
   fi
-  $COMPOSE up -d --build
+  $COMPOSE up -d --no-build
   cmd_verify
 }
 

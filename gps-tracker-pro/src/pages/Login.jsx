@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
@@ -18,6 +18,7 @@ export default function Login() {
   const { login, isAuthenticated, loading: authLoading, sessionExpired, clearSessionExpired, error: authError } = useAuth();
   const { dir, t } = useLocale();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [email, setEmail] = useState(() => localStorage.getItem(REMEMBER_KEY) ?? '');
   const [password, setPassword] = useState('');
@@ -26,7 +27,13 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
-  const [totpCode, setTotpCode] = useState('');
+
+  useEffect(() => {
+    if (location.state?.totpLocked) {
+      setFormError(t('login.totpMaxAttempts'));
+      navigate('/login', { replace: true, state: {} });
+    }
+  }, [location.state, navigate, t]);
 
   useEffect(() => {
     if (sessionExpired) {
@@ -68,8 +75,13 @@ export default function Login() {
       localStorage.removeItem(REMEMBER_KEY);
     }
 
-    const result = await login(email.trim(), password, totpCode.trim() || undefined);
+    const result = await login(email.trim(), password);
     setSubmitting(false);
+
+    if (result.totpRequired) {
+      navigate('/login/totp', { replace: true });
+      return;
+    }
 
     if (result.success) {
       navigate('/dashboard', { replace: true });
@@ -183,18 +195,6 @@ export default function Login() {
               }
               disabled={submitting}
               className={fieldErrors.password ? '[&>div]:shadow-[0_0_16px_rgba(244,63,94,0.2)]' : ''}
-            />
-
-            <Input
-              id="totp"
-              label={t('login.totp')}
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              value={totpCode}
-              onChange={(e) => setTotpCode(e.target.value.replace(/\s/g, ''))}
-              placeholder={t('login.totpPlaceholder')}
-              disabled={submitting}
             />
 
             {/* Remember me + Forgot password */}

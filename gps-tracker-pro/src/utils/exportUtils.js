@@ -76,37 +76,3 @@ export function downloadBlob(content, mime, filename) {
   link.click();
   URL.revokeObjectURL(url);
 }
-
-export async function exportReportPdf({ title, headers, rows, filename }) {
-  const { jsPDF } = await import('jspdf');
-  const { default: autoTable } = await import('jspdf-autotable');
-
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-  doc.setFontSize(14);
-  doc.text(title, 40, 40);
-  autoTable(doc, {
-    head: [headers],
-    body: rows,
-    startY: 56,
-    styles: { fontSize: 9, cellPadding: 4 },
-    headStyles: { fillColor: [15, 23, 42] },
-  });
-  doc.save(filename);
-}
-
-export async function exportReportExcel({ sheetName, headers, rows, filename }) {
-  const ExcelJS = await import('exceljs');
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet(sheetName);
-  sheet.addRow(headers);
-  rows.forEach((row) => sheet.addRow(row));
-  sheet.getRow(1).font = { bold: true };
-  const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}

@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LocaleProvider, useLocale } from './context/LocaleContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -11,19 +11,23 @@ import { DeviceProvider } from './context/DeviceContext';
 import Navbar from './components/layout/Navbar';
 import Sidebar from './components/layout/Sidebar';
 import Login from './pages/Login';
+import TotpVerify from './pages/TotpVerify';
 import Dashboard from './pages/Dashboard';
-import MapPage from './pages/MapPage';
 import VehiclesPage from './pages/VehiclesPage';
 import DevicesPage from './pages/DevicesPage';
-import Reports from './pages/Reports';
 import Settings from './pages/Settings';
-import UsersPage from './pages/UsersPage';
 import NotFound from './pages/NotFound';
 import PricingPage from './pages/PricingPage';
 import ErrorBoundary from './components/ErrorBoundary';
+import LazyRoute from './components/LazyRoute';
+import LoadingSpinner from './components/LoadingSpinner';
 import AppUpdateBanner from './components/AppUpdateBanner';
 import LoadingScreen from './components/ui/LoadingScreen';
 import { canAccessRoute } from './utils/routeAccess';
+
+const Reports = lazy(() => import(/* webpackChunkName: "reports" */ './pages/Reports'));
+const MapPage = lazy(() => import(/* webpackChunkName: "map" */ './pages/MapPage'));
+const UsersPage = lazy(() => import(/* webpackChunkName: "users" */ './pages/UsersPage'));
 
 const SIDEBAR_WIDTH = '280px';
 
@@ -152,17 +156,43 @@ function PermissionRoute({ children }) {
   return children;
 }
 
+function TotpRoute({ children }) {
+  const { needsTotpVerification, isAuthenticated, loading } = useAuth();
+
+  if (loading) return <LoadingScreen showText={false} />;
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (!needsTotpVerification) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
 function AppRoutes() {
   return (
     <BrowserRouter>
       <AppUpdateBanner />
-      <Routes>
+      <Suspense fallback={<LoadingSpinner />}>
+        <Routes>
         <Route
           path="/login"
           element={(
             <PublicRoute>
               <Login />
             </PublicRoute>
+          )}
+        />
+
+        <Route
+          path="/login/totp"
+          element={(
+            <TotpRoute>
+              <TotpVerify />
+            </TotpRoute>
           )}
         />
 
@@ -176,7 +206,14 @@ function AppRoutes() {
           )}
         >
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/map" element={<MapPage />} />
+          <Route
+            path="/map"
+            element={(
+              <LazyRoute>
+                <MapPage />
+              </LazyRoute>
+            )}
+          />
           <Route path="/vehicles" element={<VehiclesPage />} />
           <Route
             path="/devices"
@@ -190,7 +227,9 @@ function AppRoutes() {
             path="/reports"
             element={(
               <PermissionRoute>
-                <Reports />
+                <LazyRoute>
+                  <Reports />
+                </LazyRoute>
               </PermissionRoute>
             )}
           />
@@ -198,7 +237,9 @@ function AppRoutes() {
             path="/users"
             element={(
               <AdminRoute>
-                <UsersPage />
+                <LazyRoute>
+                  <UsersPage />
+                </LazyRoute>
               </AdminRoute>
             )}
           />
@@ -207,7 +248,8 @@ function AppRoutes() {
 
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<NotFound />} />
-      </Routes>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
