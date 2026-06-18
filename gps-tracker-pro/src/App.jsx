@@ -21,6 +21,7 @@ import UsersPage from './pages/UsersPage';
 import NotFound from './pages/NotFound';
 import PricingPage from './pages/PricingPage';
 import ErrorBoundary from './components/ErrorBoundary';
+import AppUpdateBanner from './components/AppUpdateBanner';
 import LoadingScreen from './components/ui/LoadingScreen';
 import { canAccessRoute } from './utils/routeAccess';
 
@@ -154,6 +155,7 @@ function PermissionRoute({ children }) {
 function AppRoutes() {
   return (
     <BrowserRouter>
+      <AppUpdateBanner />
       <Routes>
         <Route
           path="/login"

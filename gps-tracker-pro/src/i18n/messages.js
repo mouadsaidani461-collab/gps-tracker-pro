@@ -5,6 +5,11 @@ export const messages = {
       subtitle: 'نظام تتبع الأسطول',
       subtitleLong: 'نظام تتبع الأسطول الذكي',
     },
+    pwa: {
+      updateAvailable: 'تحديث جديد متوفر',
+      updateHint: 'أعد تحميل التطبيق للحصول على آخر نسخة.',
+      reload: 'تحديث',
+    },
     common: {
       loading: 'جاري التحميل...',
       save: 'حفظ التغييرات',
@@ -799,6 +804,11 @@ export const messages = {
       subtitle: 'Suivi de flotte',
       subtitleLong: 'Système intelligent de suivi de flotte',
     },
+    pwa: {
+      updateAvailable: 'Mise à jour disponible',
+      updateHint: 'Rechargez l\'application pour obtenir la dernière version.',
+      reload: 'Mettre à jour',
+    },
     common: {
       loading: 'Chargement...',
       save: 'Enregistrer',
@@ -1592,6 +1602,11 @@ export const messages = {
     app: {
       subtitle: 'Fleet tracking system',
       subtitleLong: 'Smart fleet tracking system',
+    },
+    pwa: {
+      updateAvailable: 'Update available',
+      updateHint: 'Reload the app to get the latest version.',
+      reload: 'Reload',
     },
     common: {
       loading: 'Loading...',

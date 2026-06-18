@@ -32,62 +32,69 @@ sudo ufw allow 443/tcp
 sudo ufw enable
 ```
 
-Point DNS:
+## 2. Secrets
+
+```bash
+cd gps-tracker-pro
+git pull
+cp .env.production.example .env.production
+
+openssl rand -hex 32    # → TRACCAR_SERVICE_TOKEN
+openssl rand -base64 24 # → ADMIN_PASSWORD (min 12 chars)
+
+nano .env.production   # ADMIN_EMAIL, CERTBOT_EMAIL, DOMAIN, secrets
+
+./scripts/validate-production-secrets.sh
+./scripts/audit-secrets.sh
+```
+
+## 3. Pre-DNS / pre-SSL test (HTTP on server IP)
+
+Before pointing DNS, verify the stack on Hetzner IP:
+
+```bash
+chmod +x scripts/deploy-production.sh scripts/setup-traccar-admin.sh scripts/render-edge-conf.sh
+./scripts/deploy-production.sh http
+```
+
+Test: `http://<HETZNER_IP>/` and `http://<HETZNER_IP>/api/server`
+
+Uses `edge.local.conf` (HTTP only, no certificates required).
+
+## 4. DNS (required before SSL)
 
 | Record | Value |
 |---|---|
 | `A` gps-tracker-pro.ma | `<HETZNER_IP>` |
 | `A` www.gps-tracker-pro.ma | `<HETZNER_IP>` |
 
-## 2. Secrets (rotate defaults)
+Verify: `dig +short gps-tracker-pro.ma A`
+
+## 5. First SSL deploy
 
 ```bash
-cd gps-tracker-pro
-cp .env.production.example .env.production
-
-# Generate strong secrets
-openssl rand -hex 32    # → TRACCAR_SERVICE_TOKEN
-openssl rand -base64 24 # → ADMIN_PASSWORD (min 12 chars)
-
-# Edit .env.production — NEVER use admin123 or capture-bootstrap-change-me
-nano .env.production
-
-# Preflight check (required before init/deploy)
-./scripts/validate-production-secrets.sh
-
-# Optional: store secrets as files instead of (or in addition to) .env.production
-# cp secrets/traccar_service_token.example secrets/traccar_service_token
-# cp secrets/admin_password.example secrets/admin_password
-# chmod 600 secrets/*
-```
-
-## 3. First deploy
-
-```bash
-chmod +x scripts/deploy-production.sh scripts/setup-traccar-admin.sh
 ./scripts/deploy-production.sh init
 ```
 
 This will:
 
-1. Build the hardened frontend image (`node:24-alpine` → `nginx:alpine-slim`)
-2. Start Traccar with `WEB_REGISTRATION=false`
-3. Bootstrap admin via service token
-4. Disable public registration via Traccar API
-5. Obtain Let's Encrypt certificate
-6. Start edge nginx with HSTS + CSP
+1. Build frontend image
+2. Start Traccar + bootstrap admin
+3. Start edge on **HTTP** with ACME webroot (`edge.local.conf`)
+4. Obtain Let's Encrypt certificate via certbot
+5. Render `edge.conf` from template and switch to **HTTPS**
+6. Persist `EDGE_NGINX_CONF=./docker/nginx/edge.conf` in `.env.production`
+7. Start certbot renew loop
 
-## 4. Verify
+## 6. Verify
 
 ```bash
 ./scripts/deploy-production.sh verify
-curl -s https://gps-tracker-pro.ma/api/server | jq .
+curl -s https://gps-tracker-pro.ma/api/server | head -c 200
 curl -sI https://gps-tracker-pro.ma/ | grep -i strict-transport
 ```
 
-Expected: HTTP 200 from `/api/server`, `Strict-Transport-Security` header present.
-
-## 5. Updates
+## 7. Updates
 
 ```bash
 git pull
@@ -97,23 +104,25 @@ git pull
 ## Security checklist
 
 - [ ] `.env.production` and `.env` not in git (see `.gitignore`)
-- [ ] `./scripts/audit-secrets.sh` passes on tracked files
-- [ ] `./scripts/validate-production-secrets.sh` passes before deploy
-- [ ] `ADMIN_PASSWORD` ≥ 12 chars, not `admin123`
-- [ ] `TRACCAR_SERVICE_TOKEN` rotated (32+ hex)
+- [ ] `./scripts/audit-secrets.sh` passes
+- [ ] `./scripts/validate-production-secrets.sh` passes
+- [ ] Secrets rotated if `.env` was ever committed
+- [ ] `ADMIN_PASSWORD` ≥ 12 chars
+- [ ] `TRACCAR_SERVICE_TOKEN` 32+ hex
 - [ ] Port 8082 not in `ufw` / Hetzner firewall
-- [ ] `docker scout quickview capture-tracking-gps:latest` — 0 HIGH
 - [ ] Login works; public `/api/users` POST without token returns 401
 
 ## Troubleshooting
 
 | Issue | Fix |
 |---|---|
-| certbot fails | Ensure DNS propagated; port 80 open |
-| edge won't start | Certs missing — re-run `deploy-production.sh init` |
-| Bootstrap failed | Check `docker logs traccar-init`; verify service token |
-| WebSocket disconnects | Edge proxy must pass `Upgrade` — handled by frontend nginx |
+| `init` DNS error | Point A records first; use `deploy-production.sh http` for pre-DNS |
+| certbot fails | DNS propagated; port 80 open; edge running with ACME location |
+| edge won't start (SSL) | Certs missing — re-run `init` or check `/etc/letsencrypt/live/` |
+| Bootstrap failed | `docker logs traccar-init`; verify service token |
+| Old icons in browser | Hard refresh Cmd+Shift+R; bump `?v=` in manifest |
+| WebSocket disconnects | Edge → frontend nginx handles `Upgrade` |
 
-## Week 1.2 preview (PostgreSQL)
+## PostgreSQL (المرحلة 3)
 
-See `docker-compose.production.yml` — add `postgres` service and switch `traccar.production.xml` to PostgreSQL driver (planned Week 1.2).
+انظر [ROADMAP.md](./ROADMAP.md) — المرحلة 3: migration من H2 إلى PostgreSQL.

@@ -11,12 +11,19 @@ node_modules
 
 # misc
 .DS_Store
+
+# Secrets & credentials — never commit
 .env
-.env.local
-.env.production
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+!.env.*.example
+secrets/
+scripts/passwords.txt
+scripts/bfg-*.jar
+*.pem
+*.key
+id_*
+ssh-keygen*
 
 npm-debug.log*
 yarn-debug.log*

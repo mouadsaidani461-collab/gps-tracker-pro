@@ -32,7 +32,7 @@ check_pattern() {
   fi
 }
 
-check_pattern 'weak admin password assignment' 'ADMIN_PASSWORD=REDACTED
+check_pattern 'weak admin password assignment' 'ADMIN_PASSWORD=(admin123|changeme|traccar)'
 check_pattern 'weak service token assignment' 'TRACCAR_SERVICE_TOKEN=(capture-bootstrap-change-me|changeme)'
 check_pattern 'real email in env template' 'CERTBOT_EMAIL=.*@(gmail|yahoo|hotmail)\.'
 check_pattern 'committed hex service token' 'TRACCAR_SERVICE_TOKEN=[0-9a-f]{48,}'

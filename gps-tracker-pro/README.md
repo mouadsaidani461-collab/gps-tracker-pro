@@ -84,7 +84,7 @@ Or run the bootstrap script directly:
 ```bash
 TRACCAR_URL=http://localhost:8082 \
 ADMIN_EMAIL=admin@example.com \
-ADMIN_PASSWORD=REDACTED \
+ADMIN_PASSWORD='your-strong-password-here' \
 TRACCAR_SERVICE_TOKEN='your-64-char-hex-token' \
 ./scripts/setup-traccar-admin.sh
 ```
@@ -99,6 +99,14 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8080/api/sessi
   -H 'Content-Type: application/x-www-form-urlencoded' \
   -d 'email=YOUR_EMAIL&password=YOUR_PASSWORD'                                 # 200
 ```
+
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [docs/ROADMAP.md](./docs/ROADMAP.md) | خارطة الطريق — المراحل 0–5 |
+| [docs/DEPLOY-HETZNER.md](./docs/DEPLOY-HETZNER.md) | نشر الإنتاج على Hetzner |
+| [docs/TOTP-ENROLLMENT.md](./docs/TOTP-ENROLLMENT.md) | تفعيل 2FA |
 
 ## Project Structure
 

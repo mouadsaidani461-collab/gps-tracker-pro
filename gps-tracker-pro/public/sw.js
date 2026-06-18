@@ -13,9 +13,6 @@ const PRECACHE_URLS = [
   '/192x192.png?v=2',
   '/512x512.png?v=2',
   '/maskable-icon.png?v=2',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/icon-512-maskable.png',
   '/logo.svg',
 ];
 

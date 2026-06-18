@@ -9,7 +9,7 @@ upstream capture_frontend {
 server {
     listen 80;
     listen [::]:80;
-    server_name gps-tracker-pro.ma www.gps-tracker-pro.ma;
+    server_name ${DOMAIN} www.${DOMAIN};
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -23,10 +23,10 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name gps-tracker-pro.ma www.gps-tracker-pro.ma;
+    server_name ${DOMAIN} www.${DOMAIN};
 
-    ssl_certificate     /etc/letsencrypt/live/gps-tracker-pro.ma/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/gps-tracker-pro.ma/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
     ssl_session_timeout 1d;
     ssl_session_cache shared:SSL:10m;
     ssl_protocols TLSv1.2 TLSv1.3;
