@@ -11,7 +11,6 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
 import { getRoleLabel } from '../../utils/authRoles';
-import { APP_NAME } from '../../utils/constants';
 import NotificationBell from '../notifications/NotificationBell';
 
 function cn(...classes) {
@@ -172,19 +171,14 @@ export default function Navbar({ onMenuClick, showMenu = false, searchQuery = ''
           </div>
         </div>
 
-        {/* ── Visual LEFT: logo (end in RTL) ── */}
-        <div className="flex items-center gap-3 justify-self-end">
-          <img
-            src="/logo.svg"
-            alt={APP_NAME}
-            className="h-9 w-auto hidden sm:block"
-          />
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-100 leading-tight truncate hidden md:block">
-              CAPTURE <span className="text-capture-glow">GPS</span>
-            </p>
-            <p className="text-[10px] text-capture-metallic hidden lg:block">{t('app.subtitle')}</p>
-          </div>
+        {/* ── Visual LEFT: brand (English only, end in RTL) ── */}
+        <div className="flex flex-col items-end justify-self-end text-end leading-tight shrink-0" dir="ltr">
+          <span className="text-xs font-bold text-slate-100 whitespace-nowrap">
+            Capture Tracking
+          </span>
+          <span className="text-xs font-bold text-capture-glow whitespace-nowrap">
+            GPS
+          </span>
         </div>
       </div>
     </header>

@@ -15,7 +15,6 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
 import { useVehicles } from '../../hooks/useVehicles';
-import { APP_NAME } from '../../utils/constants';
 import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
 
 function cn(...classes) {
@@ -118,15 +117,12 @@ export default function Sidebar({ onClose, mobile = false }) {
     <div className="flex flex-col h-full min-h-0">
       {/* Brand header */}
       <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-slate-600/20 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <img src="/logo.svg" alt={APP_NAME} className="h-10 w-auto shrink-0" />
-          <div className="min-w-0">
-            <p className="font-bold text-slate-100 text-sm leading-tight truncate">
-              CAPTURE <span className="text-capture-glow">GPS</span>
-            </p>
-            <p className="text-[10px] text-capture-metallic truncate">{t('app.subtitle')}</p>
-          </div>
-        </div>
+        <img
+          src="/logo.svg"
+          alt="Capture Tracking GPS"
+          className="h-10 w-auto min-w-0 max-w-[calc(100%-2.5rem)] shrink"
+          dir="ltr"
+        />
 
         {mobile && onClose && (
           <button
