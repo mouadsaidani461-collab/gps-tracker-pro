@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, waitFor, act, cleanup } from '@testing-library/react';
+import { render, act, cleanup } from '@testing-library/react';
 import { SocketProvider, useSocket } from '../../src/context/SocketContext.jsx';
 import { SIMULATION } from '../../src/utils/constants.js';
 
