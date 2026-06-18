@@ -51,7 +51,7 @@ cmd_init() {
     --email "$CERTBOT_EMAIL" --agree-tos --non-interactive --no-eff-email
 
   echo "==> Starting edge proxy + certbot renew loop..."
-  $COMPOSE up -d edge certbot
+  EDGE_NGINX_CONF=./docker/nginx/edge.conf $COMPOSE up -d edge certbot
 
   cmd_verify
 }

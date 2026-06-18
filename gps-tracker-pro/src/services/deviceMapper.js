@@ -1,6 +1,7 @@
-import { MAP, VEHICLE_STATUS } from '../utils/constants';
+import { MAP, LOCALE, VEHICLE_STATUS } from '../utils/constants';
 import { eventLabel, deviceDisplayName } from '../utils/eventLabels';
 import { formatSpeed } from '../utils/formatters';
+import { resolveNotificationTypeFromEvent } from '../utils/traccarEventMapping';
 
 const KNOTS_TO_KMH = 1.852;
 
@@ -56,10 +57,13 @@ export function indexPositions(positions) {
   return map;
 }
 
-export function mapEventToNotification(event, devices = []) {
+export function mapEventToNotification(event, devices = [], language = LOCALE.fallback) {
   const device = devices.find((d) => d.id === event.deviceId);
-  const label = eventLabel(event.type);
-  const name = deviceDisplayName(device);
+  const alarmType = event.attributes?.alarm;
+  const label = event.type === 'alarm' && alarmType
+    ? eventLabel(`alarm.${alarmType}`, language)
+    : eventLabel(event.type, language);
+  const name = deviceDisplayName(device, language);
   const speedAttr = event.attributes?.speed;
   const speedSuffix = speedAttr != null
     ? ` (${formatSpeed(Math.round(Number(speedAttr) * 1.852))})`
@@ -67,7 +71,8 @@ export function mapEventToNotification(event, devices = []) {
 
   return {
     id: String(event.id),
-    type: event.type === 'alarm' || event.type === 'deviceOverspeed' ? 'alert' : 'info',
+    type: resolveNotificationTypeFromEvent(event),
+    eventType: event.type,
     vehicleId: String(event.deviceId),
     title: `${label} — ${name}`,
     message: event.attributes?.message || `${name}: ${label}${speedSuffix}`,

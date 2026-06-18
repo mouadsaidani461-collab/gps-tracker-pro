@@ -1,8 +1,10 @@
 import { useMemo, useRef, useEffect, useState } from 'react';
 import { Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
-import { VEHICLE_STATUS, VEHICLE_STATUS_LABELS } from '../../utils/constants';
+import { VEHICLE_STATUS } from '../../utils/constants';
 import { formatSpeed, formatPlate, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
+import { useLocale } from '../../context/LocaleContext';
+import { useVehicleStatusLabel } from '../../hooks/useVehicleI18n';
 
 const STATUS_COLORS = {
   [VEHICLE_STATUS.MOVING]: { main: '#06b6d4', glow: '#67e8f9' },
@@ -69,18 +71,23 @@ export default function VehicleMarker({
 }) {
   const prevPos = useRef(null);
   const [heading, setHeading] = useState(0);
+  const { dir } = useLocale();
+  const statusLabel = useVehicleStatusLabel(vehicle.status);
 
-  const position = [vehicle.location.lat, vehicle.location.lng];
+  const lat = vehicle.location.lat;
+  const lng = vehicle.location.lng;
+  const position = [lat, lng];
 
   useEffect(() => {
+    const nextPos = [lat, lng];
     if (prevPos.current) {
-      const dist = Math.abs(position[0] - prevPos.current[0]) + Math.abs(position[1] - prevPos.current[1]);
+      const dist = Math.abs(lat - prevPos.current[0]) + Math.abs(lng - prevPos.current[1]);
       if (dist > 0.00001) {
-        setHeading(computeBearing(prevPos.current, position));
+        setHeading(computeBearing(prevPos.current, nextPos));
       }
     }
-    prevPos.current = position;
-  }, [position[0], position[1]]);
+    prevPos.current = nextPos;
+  }, [lat, lng]);
 
   const isPulsing = vehicle.status === VEHICLE_STATUS.MOVING
     || vehicle.status === VEHICLE_STATUS.ALERT;
@@ -99,7 +106,7 @@ export default function VehicleMarker({
       }}
     >
       <Popup className="capture-popup" minWidth={200}>
-        <div dir="rtl" className="text-start space-y-1.5 p-1">
+        <div dir={dir} className="text-start space-y-1.5 p-1">
           <p className="font-semibold text-slate-800 text-sm">{vehicle.name}</p>
           <p className="text-xs text-slate-500">{formatPlate(vehicle.plate)}</p>
           <p className="text-xs">
@@ -110,7 +117,7 @@ export default function VehicleMarker({
                 color: STATUS_COLORS[vehicle.status]?.main,
               }}
             >
-              {VEHICLE_STATUS_LABELS[vehicle.status]}
+              {statusLabel}
             </span>
           </p>
           <p dir="ltr" className={`text-sm text-slate-700 ${NUMERIC_DISPLAY_CLASS}`}>{formatSpeed(vehicle.speed)}</p>

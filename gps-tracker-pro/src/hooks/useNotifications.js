@@ -2,32 +2,46 @@
  * Capture Tracking GPS — notifications from Traccar WebSocket events
  */
 
-import { useState, useCallback, useEffect } from 'react';
-import { mapEventToNotification } from '../services/deviceMapper';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { NOTIFICATION_TYPES } from '../utils/constants';
 import { useSocket } from '../context/SocketContext';
+import { useLocale } from '../context/LocaleContext';
+import { loadNotificationPreferences } from '../utils/notificationPreferences';
+import { processWebSocketEvents } from '../utils/notificationEventRouter';
+
+function mergeNotifications(prev, incoming, maxNotifications) {
+  const merged = [...incoming, ...prev];
+  const seen = new Set();
+  return merged.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  }).slice(0, maxNotifications);
+}
 
 export function useNotifications(options = {}) {
   const { maxNotifications = 50 } = options;
   const { wsState, isConnected, subscribe, reconnect } = useSocket();
+  const { language } = useLocale();
+  const languageRef = useRef(language);
 
   const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    languageRef.current = language;
+  }, [language]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => subscribe((data) => {
     if (!data.events?.length) return;
 
-    setNotifications((prev) => {
-      const incoming = data.events.map((event) => mapEventToNotification(event, data.devices));
-      const merged = [...incoming, ...prev];
-      const seen = new Set();
-      return merged.filter((item) => {
-        if (seen.has(item.id)) return false;
-        seen.add(item.id);
-        return true;
-      }).slice(0, maxNotifications);
-    });
+    const prefs = loadNotificationPreferences();
+    const incoming = processWebSocketEvents(data, prefs, languageRef.current);
+
+    if (!incoming.length) return;
+
+    setNotifications((prev) => mergeNotifications(prev, incoming, maxNotifications));
   }), [subscribe, maxNotifications]);
 
   const markAsRead = useCallback((id) => {

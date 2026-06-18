@@ -9,34 +9,34 @@ export const VEHICLE_STATUS_KEYS = ['moving', 'idle', 'online', 'offline', 'aler
 const VEHICLE_TYPE_VALUES = Object.values(VEHICLE_TYPES);
 
 export function useVehicleFilters() {
-  const { t, language } = useLocale();
+  const { t } = useLocale();
   return useMemo(
     () => VEHICLE_FILTER_VALUES.map((value) => ({
       value,
       label: t(`vehicles.filters.${value}`),
     })),
-    [t, language],
+    [t],
   );
 }
 
 export function useVehicleStatusLabels() {
-  const { t, language } = useLocale();
+  const { t } = useLocale();
   return useMemo(
     () => Object.fromEntries(
       VEHICLE_STATUS_KEYS.map((key) => [key, t(`vehicles.status.${key}`)]),
     ),
-    [t, language],
+    [t],
   );
 }
 
 export function useVehicleTypeLabels() {
-  const { t, language } = useLocale();
+  const { t } = useLocale();
   return useMemo(
     () => VEHICLE_TYPE_VALUES.map((value) => ({
       value,
       label: t(`vehicles.types.${value}`),
     })),
-    [t, language],
+    [t],
   );
 }
 

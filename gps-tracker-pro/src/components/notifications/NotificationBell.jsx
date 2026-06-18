@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Bell, CheckCheck, Wifi, WifiOff } from 'lucide-react';
 import { useNotificationContext } from '../../context/NotificationContext';
 import { useLocale } from '../../context/LocaleContext';
-import NotificationItem, { isCriticalNotification } from './NotificationItem';
+import NotificationItem from './NotificationItem';
+import { isCriticalNotification } from './notificationTypes';
 import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
 
 function cn(...classes) {

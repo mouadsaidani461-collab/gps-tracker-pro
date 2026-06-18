@@ -24,7 +24,7 @@ export default function GeofenceFlyTo({ geofence, trigger = 0, zoom = MAP.select
     if (center) {
       map.flyTo(center, zoom, { duration: 1 });
     }
-  }, [geofence?.id, geofence?.coordinates?.length, trigger, map, zoom]);
+  }, [geofence, trigger, map, zoom]);
 
   return null;
 }

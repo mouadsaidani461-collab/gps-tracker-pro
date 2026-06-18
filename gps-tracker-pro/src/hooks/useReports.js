@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocale } from '../context/LocaleContext';
 import { reportApi } from '../services/traccarApi';
 import {
@@ -12,20 +12,12 @@ import {
 } from '../services/reportMapper';
 
 export function useReports({
-  reportType, dateFrom, dateTo, deviceIds, deviceIdsKey, vehicles, enabled = true,
+  reportType, dateFrom, dateTo, deviceIds, vehicles, enabled = true,
 }) {
   const { language, t } = useLocale();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  const fleetKey = useMemo(
-    () => (vehicles ?? [])
-      .map((v) => `${v.deviceId ?? v.id}:${v.plate ?? ''}`)
-      .sort()
-      .join('|'),
-    [vehicles],
-  );
 
   const fetchReports = useCallback(async () => {
     if (!enabled || !dateFrom || !dateTo) {
@@ -62,7 +54,7 @@ export function useReports({
     } finally {
       setLoading(false);
     }
-  }, [reportType, dateFrom, dateTo, deviceIdsKey, fleetKey, enabled, vehicles, deviceIds, language, t]);
+  }, [reportType, dateFrom, dateTo, enabled, vehicles, deviceIds, language, t]);
 
   useEffect(() => {
     fetchReports();

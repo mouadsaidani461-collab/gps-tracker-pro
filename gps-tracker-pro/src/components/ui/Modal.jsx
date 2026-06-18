@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocale } from '../../context/LocaleContext';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -17,7 +18,9 @@ export default function Modal({
   closeOnEscape = true,
   showClose = true,
   className = '',
+  closeLabel,
 }) {
+  const { t } = useLocale();
   const overlayRef = useRef(null);
   const panelRef = useRef(null);
 
@@ -112,7 +115,7 @@ export default function Modal({
                   'hover:bg-capture-surface/80 transition-colors',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-capture-primary/50',
                 )}
-                aria-label="إغلاق"
+                aria-label={closeLabel ?? t('common.close')}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <path d="M18 6L6 18M6 6l12 12" />

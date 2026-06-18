@@ -183,7 +183,7 @@ export function GeofenceProvider({ children }) {
     } finally {
       setSaving(false);
     }
-  }, [refreshGeofences]);
+  }, [refreshGeofences, t]);
 
   const schedulePersist = useCallback((id) => {
     const existing = pendingUpdatesRef.current.get(id);
@@ -220,7 +220,7 @@ export function GeofenceProvider({ children }) {
     } finally {
       setSaving(false);
     }
-  }, [clearDrawState]);
+  }, [clearDrawState, t]);
 
   const updateGeofence = useCallback((id, patch) => {
     setGeofences((prev) => prev.map((g) => {
@@ -243,7 +243,7 @@ export function GeofenceProvider({ children }) {
     } finally {
       setSaving(false);
     }
-  }, [clearDrawState]);
+  }, [clearDrawState, t]);
 
   const startCreateCircleMode = useCallback(() => {
     setDrawMode('create-circle');
@@ -280,7 +280,7 @@ export function GeofenceProvider({ children }) {
         index: formatNumber(geofencesRef.current.length + 1, { maximumFractionDigits: 0 }),
       }),
     });
-  }, [polygonDraft, addGeofence]);
+  }, [polygonDraft, addGeofence, t]);
 
   const handleMapClick = useCallback(async (point) => {
     if (drawMode === 'create-circle') {
@@ -303,7 +303,7 @@ export function GeofenceProvider({ children }) {
       updateGeofence(selectedId, { center: point });
       clearDrawState();
     }
-  }, [drawMode, selectedId, addGeofence, updateGeofence, clearDrawState]);
+  }, [drawMode, selectedId, addGeofence, updateGeofence, clearDrawState, t]);
 
   const addPresetGeofence = useCallback(async ({ name, center }) => {
     const existing = geofencesRef.current.find(
@@ -343,7 +343,7 @@ export function GeofenceProvider({ children }) {
     } finally {
       setLinksLoading(false);
     }
-  }, [selectedId, linkedDeviceIds]);
+  }, [selectedId, linkedDeviceIds, t]);
 
   const value = useMemo(
     () => ({

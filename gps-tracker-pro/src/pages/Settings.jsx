@@ -19,8 +19,8 @@ import { COLORS } from '../utils/constants';
 import { NUMERIC_DISPLAY_CLASS, toWesternNumerals } from '../utils/formatters';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
-import { isNotificationPrefWired } from '../utils/notificationPreferences';
 import { isTwoFactorLocked, USER_ATTR_CAPTURE_2FA } from '../utils/userAttributes';
+import NotificationDeviceFilter from '../components/settings/NotificationDeviceFilter';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -44,89 +44,76 @@ const NOTIFICATION_META = [
 const NOTIFICATION_CATEGORIES = [
   {
     id: 'battery',
-    title: 'تنبيهات البطارية',
     items: [
-      { id: 'battery_low', label: 'بطارية منخفضة', description: 'عند انخفاض مستوى البطارية عن 20%', icon: BatteryLow, severity: 'warning', defaultEnabled: true, defaultSound: true },
-      { id: 'battery_critical', label: 'بطارية حرجة', description: 'عند انخفاض مستوى البطارية عن 10%', icon: BatteryWarning, severity: 'danger', defaultEnabled: true, defaultSound: true },
-      { id: 'battery_not_charging', label: 'الجهاز غير مشحون', description: 'عند توقف الشحن رغم انخفاض البطارية', icon: PlugZap, severity: 'warning', defaultEnabled: true, defaultSound: false },
+      { id: 'battery_low', icon: BatteryLow, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'battery_critical', icon: BatteryWarning, severity: 'danger', defaultEnabled: true, defaultSound: true },
+      { id: 'battery_not_charging', icon: PlugZap, severity: 'warning', defaultEnabled: true, defaultSound: false },
     ],
   },
   {
     id: 'offline',
-    title: 'الجهاز غير متصل',
     items: [
-      { id: 'offline_30m', label: 'غير متصل > 30 دقيقة', description: 'تنبيه عند انقطاع الاتصال لأكثر من 30 دقيقة', icon: WifiOff, severity: 'warning', defaultEnabled: true, defaultSound: false },
-      { id: 'offline_2h', label: 'غير متصل > ساعتين', description: 'تنبيه عند انقطاع الاتصال لأكثر من ساعتين', icon: Timer, severity: 'warning', defaultEnabled: true, defaultSound: true },
-      { id: 'offline_24h', label: 'غير متصل > 24 ساعة', description: 'تنبيه عند انقطاع الاتصال لأكثر من 24 ساعة', icon: Clock, severity: 'danger', defaultEnabled: true, defaultSound: true },
+      { id: 'offline_30m', icon: WifiOff, severity: 'warning', defaultEnabled: true, defaultSound: false },
+      { id: 'offline_2h', icon: Timer, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'offline_24h', icon: Clock, severity: 'danger', defaultEnabled: true, defaultSound: true },
     ],
   },
   {
     id: 'speed',
-    title: 'تنبيهات السرعة',
     items: [
-      { id: 'speed_limit_80', label: 'تجاوز 80 كم/س', description: 'تنبيه عند تجاوز حد السرعة 80 كم/س', icon: Gauge, severity: 'warning', defaultEnabled: true, defaultSound: true },
-      { id: 'speed_limit_120', label: 'تجاوز 120 كم/س', description: 'تنبيه عند تجاوز حد السرعة 120 كم/س', icon: AlertTriangle, severity: 'danger', defaultEnabled: true, defaultSound: true },
-      { id: 'speed_dangerous_150', label: 'سرعة خطرة > 150 كم/س', description: 'تنبيه فوري للسرعات الخطرة فوق 150 كم/س', icon: Zap, severity: 'danger', defaultEnabled: true, defaultSound: true },
+      { id: 'speed_limit_80', icon: Gauge, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'speed_limit_120', icon: AlertTriangle, severity: 'danger', defaultEnabled: true, defaultSound: true },
+      { id: 'speed_dangerous_150', icon: Zap, severity: 'danger', defaultEnabled: true, defaultSound: true },
     ],
   },
   {
     id: 'geofence',
-    title: 'تنبيهات المناطق الجغرافية',
     items: [
-      { id: 'geofence_enter_restricted', label: 'دخول منطقة محظورة', description: 'عند دخول مركبة إلى منطقة جغرافية محظورة', icon: MapPin, severity: 'danger', defaultEnabled: true, defaultSound: true },
-      { id: 'geofence_exit_allowed', label: 'خروج من منطقة مسموحة', description: 'عند خروج المركبة من المنطقة المسموح بها', icon: LogOut, severity: 'warning', defaultEnabled: true, defaultSound: true },
-      { id: 'geofence_enter_after_22', label: 'دخول بعد 22:00', description: 'دخول منطقة جغرافية بعد الساعة 22:00', icon: MoonStar, severity: 'warning', defaultEnabled: true, defaultSound: false },
+      { id: 'geofence_enter_restricted', icon: MapPin, severity: 'danger', defaultEnabled: true, defaultSound: true },
+      { id: 'geofence_exit_allowed', icon: LogOut, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'geofence_enter_after_22', icon: MoonStar, severity: 'warning', defaultEnabled: true, defaultSound: false },
     ],
   },
   {
     id: 'maintenance',
-    title: 'تذكيرات الصيانة',
     items: [
-      { id: 'maintenance_oil', label: 'تغيير الزيت', description: 'تذكير كل 5000 كم', icon: Wrench, severity: 'info', defaultEnabled: true, defaultSound: false },
-      { id: 'maintenance_brakes', label: 'فحص الفرامل', description: 'تذكير بفحص نظام الفرامل', icon: CircleDot, severity: 'warning', defaultEnabled: true, defaultSound: false },
-      { id: 'maintenance_inspection', label: 'فحص عام', description: 'تذكير بالفحص الدوري للمركبة', icon: ClipboardCheck, severity: 'info', defaultEnabled: true, defaultSound: false },
-      { id: 'maintenance_insurance', label: 'انتهاء التأمين', description: 'تذكير قبل انتهاء صلاحية التأمين', icon: ShieldCheck, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'maintenance_oil', icon: Wrench, severity: 'info', defaultEnabled: true, defaultSound: false },
+      { id: 'maintenance_brakes', icon: CircleDot, severity: 'warning', defaultEnabled: true, defaultSound: false },
+      { id: 'maintenance_inspection', icon: ClipboardCheck, severity: 'info', defaultEnabled: true, defaultSound: false },
+      { id: 'maintenance_insurance', icon: ShieldCheck, severity: 'warning', defaultEnabled: true, defaultSound: true },
     ],
   },
   {
     id: 'driver',
-    title: 'سلوك السائق',
     items: [
-      { id: 'driver_hard_brake', label: 'فرملة قوية', description: 'كشف فرملة مفاجئة أو قوية', icon: TrendingDown, severity: 'warning', defaultEnabled: true, defaultSound: true },
-      { id: 'driver_rapid_accel', label: 'تسارع مفاجئ', description: 'كشف تسارع سريع أو غير طبيعي', icon: TrendingUp, severity: 'warning', defaultEnabled: true, defaultSound: true },
-      { id: 'driver_sharp_turn', label: 'انعطاف حاد', description: 'كشف انعطاف حاد بسرعة مرتفعة', icon: RotateCcw, severity: 'warning', defaultEnabled: true, defaultSound: false },
-      { id: 'driver_night_driving', label: 'قيادة ليلية', description: 'تنبيه عند القيادة في ساعات متأخرة من الليل', icon: Car, severity: 'info', defaultEnabled: false, defaultSound: false },
+      { id: 'driver_hard_brake', icon: TrendingDown, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'driver_rapid_accel', icon: TrendingUp, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'driver_sharp_turn', icon: RotateCcw, severity: 'warning', defaultEnabled: true, defaultSound: false },
+      { id: 'driver_night_driving', icon: Car, severity: 'info', defaultEnabled: false, defaultSound: false },
     ],
   },
   {
     id: 'weather',
-    title: 'تنبيهات الطقس',
     items: [
-      { id: 'weather_storm', label: 'عاصفة', description: 'تنبيه بعاصفة في منطقة المركبة', icon: CloudLightning, severity: 'danger', defaultEnabled: true, defaultSound: true },
-      { id: 'weather_heavy_rain', label: 'أمطار غزيرة', description: 'تنبيه بأمطار غزيرة قد تؤثر على القيادة', icon: CloudRain, severity: 'warning', defaultEnabled: true, defaultSound: false },
-      { id: 'weather_fog', label: 'ضباب', description: 'تنبيه بانخفاض الرؤية بسبب الضباب', icon: CloudFog, severity: 'warning', defaultEnabled: true, defaultSound: false },
-      { id: 'weather_extreme_heat', label: 'حرارة شديدة', description: 'تنبيه بدرجات حرارة مرتفعة جداً', icon: ThermometerSun, severity: 'info', defaultEnabled: true, defaultSound: false },
+      { id: 'weather_storm', icon: CloudLightning, severity: 'danger', defaultEnabled: true, defaultSound: true },
+      { id: 'weather_heavy_rain', icon: CloudRain, severity: 'warning', defaultEnabled: true, defaultSound: false },
+      { id: 'weather_fog', icon: CloudFog, severity: 'warning', defaultEnabled: true, defaultSound: false },
+      { id: 'weather_extreme_heat', icon: ThermometerSun, severity: 'info', defaultEnabled: true, defaultSound: false },
     ],
   },
   {
     id: 'fuel',
-    title: 'تنبيهات الوقود',
     items: [
-      { id: 'fuel_low', label: 'مستوى وقود منخفض', description: 'عند انخفاض مستوى الوقود عن الحد المحدد', icon: Fuel, severity: 'warning', defaultEnabled: true, defaultSound: true },
-      { id: 'fuel_abnormal', label: 'استهلاك غير طبيعي', description: 'كشف استهلاك وقود أعلى من المعدل المعتاد', icon: TrendingDown, severity: 'warning', defaultEnabled: true, defaultSound: false },
-      { id: 'fuel_theft', label: 'سرقة وقود', description: 'انخفاض مفاجئ في مستوى الوقود (احتمال سرقة)', icon: Droplets, severity: 'danger', defaultEnabled: true, defaultSound: true },
+      { id: 'fuel_low', icon: Fuel, severity: 'warning', defaultEnabled: true, defaultSound: true },
+      { id: 'fuel_abnormal', icon: TrendingDown, severity: 'warning', defaultEnabled: true, defaultSound: false },
+      { id: 'fuel_theft', icon: Droplets, severity: 'danger', defaultEnabled: true, defaultSound: true },
     ],
   },
 ];
 
-const VISIBLE_NOTIFICATION_META = NOTIFICATION_META.filter((item) => isNotificationPrefWired(item.id));
+const VISIBLE_NOTIFICATION_META = NOTIFICATION_META.filter((item) => item.id !== 'email');
 
-const VISIBLE_NOTIFICATION_CATEGORIES = NOTIFICATION_CATEGORIES
-  .map((category) => ({
-    ...category,
-    items: category.items.filter((item) => isNotificationPrefWired(item.id)),
-  }))
-  .filter((category) => category.items.length > 0);
+const VISIBLE_NOTIFICATION_CATEGORIES = NOTIFICATION_CATEGORIES;
 
 const SEVERITY_STYLES = {
   info: {
@@ -291,7 +278,7 @@ export default function Settings() {
       icon,
       label: t(labelKey),
     })),
-    [t, language],
+    [t],
   );
 
   const [activeTab, setActiveTab] = useState('profile');
@@ -303,6 +290,8 @@ export default function Settings() {
   });
   const [notifSettings, setNotifSettings] = useState({
     ...DEFAULT_NOTIF,
+    deviceFilterMode: 'all',
+    deviceFilterIds: [],
     ...stored.notifications,
   });
   const [soundEnabled, setSoundEnabled] = useState(stored.soundEnabled ?? true);
@@ -556,7 +545,7 @@ export default function Settings() {
                     key={item.id}
                     item={item}
                     t={t}
-                    enabled={notifSettings[item.id]}
+                    enabled={notifSettings[item.id] ?? item.defaultEnabled}
                     soundOn={false}
                     soundEnabled={soundEnabled}
                     showSound={false}
@@ -565,6 +554,13 @@ export default function Settings() {
                   />
                 ))}
               </div>
+
+              <NotificationDeviceFilter
+                mode={notifSettings.deviceFilterMode ?? 'all'}
+                deviceIds={notifSettings.deviceFilterIds ?? []}
+                onModeChange={(deviceFilterMode) => setNotifSettings({ ...notifSettings, deviceFilterMode })}
+                onDeviceIdsChange={(deviceFilterIds) => setNotifSettings({ ...notifSettings, deviceFilterIds })}
+              />
 
               {VISIBLE_NOTIFICATION_CATEGORIES.map((category) => (
                 <div

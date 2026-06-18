@@ -7,25 +7,11 @@ import { MAP } from '../../utils/constants';
 import { useLocale } from '../../context/LocaleContext';
 import { useFormatters } from '../../hooks/useFormatters';
 import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
+import { TILE_LAYERS } from './tileLayers';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
 }
-
-export const TILE_LAYERS = {
-  dark: {
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
-  },
-  street: {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; OpenStreetMap',
-  },
-  satellite: {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri',
-  },
-};
 
 export default function MapControls({
   layer = 'dark',
