@@ -6,7 +6,8 @@
 #   2. ./scripts/clean-secrets.sh
 #   3. git push --force --all && git push --force --tags   # after review
 #
-# Requires: git, java (JRE 8+), network for first-time BFG download.
+# Requires: git, JRE 8+ (local java OR Docker traccar/traccar:latest fallback).
+# Network only needed for first-time BFG jar download.
 
 set -e
 
@@ -33,13 +34,54 @@ step() {
   echo "==> $*"
 }
 
+java_works() {
+  command -v java >/dev/null 2>&1 && java -jar "$BFG_JAR" --help >/dev/null 2>&1
+}
+
+docker_java_works() {
+  command -v docker >/dev/null 2>&1 \
+    && docker image inspect traccar/traccar:latest >/dev/null 2>&1 \
+    && docker run --rm --entrypoint /opt/traccar/jre/bin/java traccar/traccar:latest -version >/dev/null 2>&1
+}
+
+dockerize_arg() {
+  case "$1" in
+    "$ROOT") echo "/repo" ;;
+    "$ROOT"/*) echo "/repo/${1#$ROOT/}" ;;
+    *) echo "$1" ;;
+  esac
+}
+
+run_bfg() {
+  local -a args=("$@")
+  if java_works; then
+    java -jar "$BFG_JAR" "${args[@]}"
+    return
+  fi
+  if docker_java_works; then
+    local -a docker_args=()
+    local arg
+    for arg in "${args[@]}"; do
+      docker_args+=("$(dockerize_arg "$arg")")
+    done
+    echo "Using Docker Java (traccar/traccar:latest) — local JRE not available."
+    docker run --rm \
+      --entrypoint /opt/traccar/jre/bin/java \
+      -v "$ROOT:/repo" \
+      -w /repo \
+      traccar/traccar:latest \
+      -jar "/repo/scripts/bfg-${BFG_VERSION}.jar" "${docker_args[@]}"
+    return
+  fi
+  die "No Java runtime. Install openjdk@17, or ensure traccar/traccar:latest is pulled for Docker fallback."
+}
+
 if [ ! -d "$ROOT/.git" ]; then
   die "Not a git repository: $ROOT"
 fi
 
 step "Step 1/7 — Preflight checks"
 need_cmd git
-need_cmd java
 
 if [ -n "$(git status --porcelain)" ]; then
   die "Working tree is not clean. Commit or stash changes before rewriting history."
@@ -62,18 +104,18 @@ else
   echo "Using existing BFG jar: $BFG_JAR"
 fi
 
-if ! java -jar "$BFG_JAR" --help >/dev/null 2>&1; then
-  die "BFG jar is present but java -jar failed. Install a JRE and retry."
+if ! java_works && ! docker_java_works; then
+  die "BFG jar is present but no working Java (local or Docker). See SECURITY.md."
 fi
 
 step "Step 3/7 — Delete SSH key files from history"
 # Filenames were accidentally committed at repo root (quoted paths in git).
-java -jar "$BFG_JAR" \
+run_bfg \
   --delete-files '{ssh-keygen*,id_ed25519,id_ed25519.pub,id_rsa,id_rsa.pub,*.pem,*.key}' \
   "$ROOT"
 
 step "Step 4/7 — Replace secret strings with ${REDACTED}"
-java -jar "$BFG_JAR" \
+run_bfg \
   --replace-text "$PASSWORDS_FILE" \
   "$ROOT"
 
