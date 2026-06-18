@@ -80,16 +80,18 @@ services:
       - capture-net
     restart: "no"
 
+  # Optional MySQL — only started with: docker compose --profile mysql up -d
+  # Set MYSQL_ROOT_PASSWORD and MYSQL_PASSWORD in .env before using this profile.
   database:
     profiles: [mysql]
     image: mysql:8.4
     container_name: traccar-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env for mysql profile}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-traccar}
       MYSQL_USER: ${MYSQL_USER:-traccar}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env for mysql profile}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - mysql-data:/var/lib/mysql
     networks:
