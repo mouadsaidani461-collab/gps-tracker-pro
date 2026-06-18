@@ -51,6 +51,14 @@ openssl rand -base64 24 # → ADMIN_PASSWORD (min 12 chars)
 
 # Edit .env.production — NEVER use admin123 or capture-bootstrap-change-me
 nano .env.production
+
+# Preflight check (required before init/deploy)
+./scripts/validate-production-secrets.sh
+
+# Optional: store secrets as files instead of (or in addition to) .env.production
+# cp secrets/traccar_service_token.example secrets/traccar_service_token
+# cp secrets/admin_password.example secrets/admin_password
+# chmod 600 secrets/*
 ```
 
 ## 3. First deploy
@@ -88,7 +96,9 @@ git pull
 
 ## Security checklist
 
-- [ ] `.env.production` not in git (see `.gitignore`)
+- [ ] `.env.production` and `.env` not in git (see `.gitignore`)
+- [ ] `./scripts/audit-secrets.sh` passes on tracked files
+- [ ] `./scripts/validate-production-secrets.sh` passes before deploy
 - [ ] `ADMIN_PASSWORD` ≥ 12 chars, not `admin123`
 - [ ] `TRACCAR_SERVICE_TOKEN` rotated (32+ hex)
 - [ ] Port 8082 not in `ufw` / Hetzner firewall

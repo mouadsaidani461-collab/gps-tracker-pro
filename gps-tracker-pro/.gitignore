@@ -11,7 +11,15 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Environment & secrets — never commit real values
+.env
+.env.local
 .env.production
+secrets/*
+!secrets/.gitkeep
+!secrets/README
+!secrets/*.example
 
 # Editor directories and files
 .vscode/*

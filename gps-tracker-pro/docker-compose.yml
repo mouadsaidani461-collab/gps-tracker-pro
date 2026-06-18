@@ -86,16 +86,16 @@ services:
     container_name: traccar-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env for mysql profile}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-traccar}
       MYSQL_USER: ${MYSQL_USER:-traccar}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-traccar}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env for mysql profile}
     volumes:
       - mysql-data:/var/lib/mysql
     networks:
       - capture-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-changeme}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5

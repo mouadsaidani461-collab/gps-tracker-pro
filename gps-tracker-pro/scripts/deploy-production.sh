@@ -23,6 +23,21 @@ fi
 # shellcheck disable=SC1091
 set -a && source .env.production && set +a
 
+load_secret_file() {
+  local var_name="$1"
+  local file_path="$2"
+  if [ -f "$file_path" ]; then
+    # shellcheck disable=SC2163
+    export "$var_name=$(tr -d '\n\r' < "$file_path")"
+  fi
+}
+
+load_secret_file TRACCAR_SERVICE_TOKEN secrets/traccar_service_token
+load_secret_file ADMIN_PASSWORD secrets/admin_password
+load_secret_file CERTBOT_EMAIL secrets/certbot_email
+
+./scripts/validate-production-secrets.sh .env.production
+
 DOMAIN="${DOMAIN:-gps-tracker-pro.ma}"
 CERTBOT_EMAIL="${CERTBOT_EMAIL:-}"
 

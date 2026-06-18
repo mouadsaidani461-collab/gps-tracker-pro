@@ -31,8 +31,8 @@ Vite proxies `/api` → `http://localhost:8082` (cookies + WebSocket).
 
 Use your **Traccar user** (Settings → Users on port 8082):
 
-- Email: `mouadsaidani461@gmail.com` (example)
-- Password: your Traccar password
+- Email: your Traccar admin email
+- Password: your Traccar password (min 12 chars for production bootstrap)
 - 2FA: optional field if TOTP enabled on Traccar
 
 ## Features
@@ -59,32 +59,43 @@ npm run preview
 
 ```bash
 cd gps-tracker-pro
-docker compose --env-file .env.production up --build -d
+cp .env.production.example .env.production
+# Edit .env.production — set ADMIN_EMAIL, ADMIN_PASSWORD, TRACCAR_SERVICE_TOKEN
+docker compose -f docker-compose.production.yml --env-file .env.production up --build -d
 ```
 
-- **App:** http://localhost:3001 (or `FRONTEND_PORT` in `.env.production`)
-- **Traccar admin:** http://localhost:8082
+- **App:** http://localhost:8080 (or `FRONTEND_PORT` in `.env.production`; edge nginx serves HTTPS in production)
+- **Traccar admin:** internal only in production (via `/api` proxy)
 - API + WebSocket proxied via nginx (`/api` → Traccar) — same-origin cookies, no CORS needed.
 
 ### First-time Traccar user (required)
 
 Docker Traccar starts with an **empty database** — there is no default `admin/admin`.
-Create the first admin once:
+Production bootstrap runs automatically via `traccar-init`. For manual dev setup:
+
+```bash
+cp .env.example .env
+# Fill ADMIN_EMAIL, ADMIN_PASSWORD (min 12 chars), TRACCAR_SERVICE_TOKEN in .env
+docker compose up -d
+```
+
+Or run the bootstrap script directly:
 
 ```bash
 TRACCAR_URL=http://localhost:8082 \
-ADMIN_EMAIL=mouadsaidani461@gmail.com \
+ADMIN_EMAIL=admin@example.com \
 ADMIN_PASSWORD=REDACTED \
+TRACCAR_SERVICE_TOKEN='your-64-char-hex-token' \
 ./scripts/setup-traccar-admin.sh
 ```
 
-Then login at http://localhost:3001/login with the same email/password.
+Then login at http://localhost:3000/login with the same email/password.
 
 **Verify proxy:**
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3001/api/server   # 200
-curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:3001/api/session \
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8080/api/server   # 200
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8080/api/session \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   -d 'email=YOUR_EMAIL&password=YOUR_PASSWORD'                                 # 200
 ```

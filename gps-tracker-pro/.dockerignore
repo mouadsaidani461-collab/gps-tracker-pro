@@ -8,11 +8,12 @@ coverage
 .git
 .gitignore
 
-# Environment & secrets
+# Environment & secrets (never bake into image)
 .env
 .env.*
 !.env.example
-!.env.production
+!.env.production.example
+secrets/
 
 # IDE & editor
 .vscode
