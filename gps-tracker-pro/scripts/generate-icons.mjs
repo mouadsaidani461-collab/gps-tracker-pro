@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Generate PWA PNG icons and favicon.ico from public/icon.svg + icon-maskable.svg
- * Run: node scripts/generate-icons.mjs
+ * Generate PWA icons and favicons from Capture Tracking GPS shield logo.
+ * Run: npm run generate:icons
  */
-import { mkdir, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
@@ -12,45 +12,55 @@ import pngToIco from 'png-to-ico';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, '..', 'public');
 
-const SIZES = [72, 96, 128, 144, 152, 192, 384, 512];
-const MASKABLE_SIZES = [192, 512];
+const iconSvg = path.join(publicDir, 'icon-source.svg');
+const maskableSvg = path.join(publicDir, 'icon-maskable-source.svg');
 
 async function renderPng(svgPath, size, outPath) {
   await sharp(svgPath, { density: Math.max(144, size * 2) })
-    .resize(size, size)
-    .png({ compressionLevel: 9 })
+    .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png({ compressionLevel: 9, adaptiveFiltering: true })
     .toFile(outPath);
 }
 
+async function renderPngBuffer(svgPath, size) {
+  return sharp(svgPath, { density: Math.max(144, size * 2) })
+    .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
+}
+
 async function main() {
-  const iconSvg = path.join(publicDir, 'icon.svg');
-  const maskableSvg = path.join(publicDir, 'icon-maskable.svg');
+  const outputs = [
+    { svg: iconSvg, size: 192, file: '192x192.png' },
+    { svg: iconSvg, size: 512, file: '512x512.png' },
+    { svg: iconSvg, size: 180, file: '180x180.png' },
+    { svg: iconSvg, size: 16, file: '16x16.png' },
+    { svg: iconSvg, size: 32, file: '32x32.png' },
+    { svg: maskableSvg, size: 512, file: 'maskable-icon.png' },
+  ];
 
-  for (const size of SIZES) {
-    const out = path.join(publicDir, `icon-${size}.png`);
-    await renderPng(iconSvg, size, out);
-    console.log(`Created ${path.basename(out)}`);
+  for (const { svg, size, file } of outputs) {
+    const out = path.join(publicDir, file);
+    await renderPng(svg, size, out);
+    console.log(`Created ${file}`);
   }
 
-  for (const size of MASKABLE_SIZES) {
-    const out = path.join(publicDir, `icon-${size}-maskable.png`);
-    await renderPng(maskableSvg, size, out);
-    console.log(`Created ${path.basename(out)}`);
-  }
-
-  const faviconSizes = [16, 32, 48];
-  const faviconBuffers = await Promise.all(
-    faviconSizes.map((size) =>
-      sharp(iconSvg, { density: 256 })
-        .resize(size, size)
-        .png()
-        .toBuffer(),
-    ),
-  );
-
-  const icoBuffer = await pngToIco(faviconBuffers);
+  const favicon16 = await renderPngBuffer(iconSvg, 16);
+  const favicon32 = await renderPngBuffer(iconSvg, 32);
+  const icoBuffer = await pngToIco([favicon16, favicon32]);
   await writeFile(path.join(publicDir, 'favicon.ico'), icoBuffer);
-  console.log('Created favicon.ico');
+  console.log('Created favicon.ico (16x16 + 32x32)');
+
+  // Backward-compatible aliases used elsewhere in the app
+  const aliases = [
+    ['192x192.png', 'icon-192.png'],
+    ['512x512.png', 'icon-512.png'],
+    ['maskable-icon.png', 'icon-512-maskable.png'],
+  ];
+  for (const [src, dest] of aliases) {
+    await sharp(path.join(publicDir, src)).toFile(path.join(publicDir, dest));
+    console.log(`Created ${dest} (alias)`);
+  }
 }
 
 main().catch((error) => {
