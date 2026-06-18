@@ -171,14 +171,15 @@ export default function Navbar({ onMenuClick, showMenu = false, searchQuery = ''
           </div>
         </div>
 
-        {/* ── Visual LEFT: brand (English only, end in RTL) ── */}
-        <div className="flex flex-col items-end justify-self-end text-end leading-tight shrink-0" dir="ltr">
-          <span className="text-xs font-bold text-slate-100 whitespace-nowrap">
-            Capture Tracking
-          </span>
-          <span className="text-xs font-bold text-capture-glow whitespace-nowrap">
-            GPS
-          </span>
+        {/* ── Visual LEFT: shield mark only (end in RTL) ── */}
+        <div className="flex items-center justify-self-end shrink-0">
+          <img
+            src="/icon-source.svg"
+            alt="Capture Tracking GPS"
+            className="h-8 w-8"
+            width={32}
+            height={32}
+          />
         </div>
       </div>
     </header>
