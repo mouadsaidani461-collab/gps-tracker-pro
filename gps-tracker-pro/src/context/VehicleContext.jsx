@@ -17,12 +17,14 @@ import {
 } from '../services/deviceMapper';
 import { VEHICLE_STATUS } from '../utils/constants';
 import { useAuth } from './AuthContext';
+import { useLocale } from './LocaleContext';
 import { useSocket } from './SocketContext';
 
 const VehicleContext = createContext(null);
 
 export function VehicleProvider({ children }) {
   const { isAuthenticated } = useAuth();
+  const { t } = useLocale();
   const { subscribe, isConnected } = useSocket();
 
   const [devices, setDevices] = useState([]);
@@ -61,11 +63,11 @@ export function VehicleProvider({ children }) {
         console.warn('[fleet] positions unavailable:', positionsResult.reason?.message);
       }
     } catch (err) {
-      setError(err.message || 'تعذّر تحميل المركبات');
+      setError(err.message || t('vehicles.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, t]);
 
   useEffect(() => {
     loadFleet();

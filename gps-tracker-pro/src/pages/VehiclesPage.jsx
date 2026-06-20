@@ -1,12 +1,14 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  LayoutGrid, List, Search, SlidersHorizontal, Download,
+  LayoutGrid, List, Search, SlidersHorizontal, Download, RefreshCw,
   MapPin, CheckSquare, Square, X, Fuel, Gauge,
   Battery, Signal, Route, Clock, Phone, AlertTriangle,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useVehicles } from '../hooks/useVehicles';
 import { formatPlate, formatNumber, NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
+import { getVisiblePageNumbers } from '../utils/pagination';
 import { useLocale } from '../context/LocaleContext';
 import { useVehicleFilters, useVehicleStatusLabels, useVehicleTypeLabels } from '../hooks/useVehicleI18n';
 import { useFormatters } from '../hooks/useFormatters';
@@ -15,57 +17,144 @@ import VehicleCard from '../components/dashboard/VehicleCard';
 import { StatusBadge } from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
+import { SkeletonCard } from '../components/ui/Skeleton';
+import { VEHICLES_PAGE_SIZE } from './vehicles/constants';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
-function getVehicleStats(vehicle) {
-  return {
-    odometerKm: vehicle.odometer ? vehicle.odometer / 1000 : 0,
-  };
+const PAGE_BUTTON_WINDOW = 7;
+
+function VehiclesEmptyState({ isFilteredEmpty }) {
+  const { t } = useLocale();
+
+  return (
+    <div className="capture-card py-16 text-center">
+      <p className="text-slate-400 font-medium">
+        {isFilteredEmpty ? t('vehicles.noMatch') : t('vehicles.noResults')}
+      </p>
+      {isFilteredEmpty && (
+        <p className="text-sm text-slate-500 mt-2">{t('vehicles.searchEmpty')}</p>
+      )}
+    </div>
+  );
+}
+
+function VehiclesPaginationBar({
+  page,
+  totalPages,
+  visiblePages,
+  onPageChange,
+  t,
+}) {
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="capture-card overflow-hidden border border-slate-600/25">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-600/20">
+        <p className="text-xs text-slate-400">
+          {t('common.page')}{' '}
+          <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+            {formatNumber(page, { maximumFractionDigits: 0 })}
+          </span>
+          {' '}{t('common.of')}{' '}
+          <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+            {formatNumber(totalPages, { maximumFractionDigits: 0 })}
+          </span>
+        </p>
+        <div className={cn('flex items-center gap-1', NUMERIC_DISPLAY_CLASS)} dir="ltr">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => onPageChange(page - 1)}
+            className={cn(
+              'p-2 rounded-lg transition-colors',
+              page <= 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-capture-surface/60 text-capture-glow',
+            )}
+            aria-label={t('common.previousPage')}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          {visiblePages.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onPageChange(p)}
+              className={cn(
+                'w-8 h-8 rounded-lg text-xs font-medium transition-colors',
+                page === p
+                  ? 'bg-capture-primary/20 text-capture-glow border border-capture-primary/40'
+                  : 'text-slate-400 hover:bg-capture-surface/60',
+              )}
+            >
+              {formatNumber(p, { maximumFractionDigits: 0 })}
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => onPageChange(page + 1)}
+            className={cn(
+              'p-2 rounded-lg transition-colors',
+              page >= totalPages ? 'opacity-40 cursor-not-allowed' : 'hover:bg-capture-surface/60 text-capture-glow',
+            )}
+            aria-label={t('common.nextPage')}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
   const { t } = useLocale();
   const {
-    formatRelativeTime, formatSpeed, formatFuel, formatDistance, formatOdometer,
+    formatRelativeTime, formatSpeed, formatFuel, formatOdometer,
   } = useFormatters();
   if (!vehicle) return null;
 
-  const { odometerKm } = getVehicleStats(vehicle);
+  const formatPercent = formatFuel;
 
   return (
     <Modal
       open={open}
       onClose={onClose}
       title={vehicle.name}
-      description={formatPlate(vehicle.plate)}
       size="lg"
-      footer={
+      footer={(
         <>
           <Button variant="secondary" onClick={onClose}>{t('common.close')}</Button>
           <Button variant="primary" leftIcon={<MapPin className="w-4 h-4" />} onClick={() => { onTrackMap(vehicle); onClose(); }}>
             {t('vehicles.trackOnMap')}
           </Button>
         </>
-      }
+      )}
     >
       <div className="space-y-5">
+        <p className="text-sm text-capture-metallic -mt-1" dir="ltr">
+          {formatPlate(vehicle.plate)}
+        </p>
+
         <div className="flex items-center gap-3">
           <StatusBadge status={vehicle.status} />
           <span className="text-xs text-slate-500">
-            {t('vehicles.lastUpdateShort')}: {formatRelativeTime(vehicle.lastUpdate)}
+            {t('vehicles.lastUpdateShort')}:{' '}
+            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+              {formatRelativeTime(vehicle.lastUpdate)}
+            </span>
           </span>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-4">
           {[
             { icon: Gauge, labelKey: 'vehicles.fields.speed', value: formatSpeed(vehicle.speed), numeric: true },
-            { icon: Fuel, labelKey: 'vehicles.fields.fuel', value: formatFuel(vehicle.fuel), numeric: true },
-            { icon: Battery, labelKey: 'vehicles.fields.battery', value: formatFuel(vehicle.battery), numeric: true },
-            { icon: Signal, labelKey: 'vehicles.fields.signal', value: formatFuel(vehicle.signal), numeric: true },
-            { icon: Route, labelKey: 'vehicles.fields.odometer', value: formatDistance(odometerKm), numeric: true },
+            { icon: Fuel, labelKey: 'vehicles.fields.fuel', value: formatPercent(vehicle.fuel), numeric: true },
+            { icon: Battery, labelKey: 'vehicles.fields.battery', value: formatPercent(vehicle.battery), numeric: true },
+            { icon: Signal, labelKey: 'vehicles.fields.signal', value: formatPercent(vehicle.signal), numeric: true },
+            { icon: Route, labelKey: 'vehicles.fields.odometer', value: formatOdometer(vehicle.odometer), numeric: true },
             { icon: Clock, labelKey: 'vehicles.lastUpdateShort', value: formatRelativeTime(vehicle.lastUpdate), numeric: true },
             { icon: MapPin, labelKey: 'vehicles.fields.location', value: vehicle.location?.address ?? '—' },
             { icon: Phone, labelKey: 'vehicles.fields.driver', value: vehicle.driver },
@@ -86,13 +175,6 @@ function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
           ))}
         </div>
 
-        <div className="p-3 rounded-lg bg-capture-bg/40 border border-slate-600/20">
-          <p className="text-[10px] text-slate-500 mb-1">{t('vehicles.fields.odometer')}</p>
-          <p className="text-sm text-slate-200">
-            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatOdometer(vehicle.odometer)}</span>
-          </p>
-        </div>
-
         {vehicle.geofence && (
           <div className="p-3 rounded-lg bg-capture-bg/40 border border-slate-600/20">
             <p className="text-[10px] text-slate-500 mb-1">{t('vehicles.geofenceZone')}</p>
@@ -105,7 +187,7 @@ function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
           </div>
         )}
 
-        {vehicle.alerts?.length > 0 && (
+        {(vehicle.alerts?.length ?? 0) > 0 && (
           <div>
             <p className="text-sm font-medium text-slate-300 mb-2 flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4 text-capture-warning" />
@@ -131,8 +213,14 @@ function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
 
 export default function VehiclesPage() {
   const navigate = useNavigate();
-  const { vehicles, selectVehicle } = useVehicles();
-  const { t, language } = useLocale();
+  const {
+    vehicles,
+    selectVehicle,
+    loading,
+    error,
+    refreshFleet,
+  } = useVehicles();
+  const { dir, t, language } = useLocale();
   const { formatSpeed, formatFuel } = useFormatters();
   const vehicleFilters = useVehicleFilters();
   const statusLabels = useVehicleStatusLabels();
@@ -145,6 +233,7 @@ export default function VehiclesPage() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [minFuel, setMinFuel] = useState(0);
   const [alertsOnly, setAlertsOnly] = useState(false);
+  const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [detailVehicle, setDetailVehicle] = useState(null);
   const [bulkMsg, setBulkMsg] = useState(null);
@@ -153,19 +242,42 @@ export default function VehiclesPage() {
     return vehicles.filter((v) => {
       if (statusFilter !== 'all' && v.status !== statusFilter) return false;
       if (typeFilter !== 'all' && v.type !== typeFilter) return false;
-      if (v.fuel < minFuel) return false;
-      if (alertsOnly && v.alerts.length === 0) return false;
+      if ((v.fuel ?? 0) < minFuel) return false;
+      if (alertsOnly && (v.alerts?.length ?? 0) === 0) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
         return (
-          v.name.toLowerCase().includes(q)
-          || v.plate.toLowerCase().includes(q)
-          || v.driver.toLowerCase().includes(q)
+          String(v.name ?? '').toLowerCase().includes(q)
+          || String(v.plate ?? '').toLowerCase().includes(q)
+          || String(v.driver ?? '').toLowerCase().includes(q)
         );
       }
       return true;
     });
   }, [vehicles, statusFilter, typeFilter, minFuel, alertsOnly, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / VEHICLES_PAGE_SIZE));
+  const paginated = useMemo(() => {
+    const start = (page - 1) * VEHICLES_PAGE_SIZE;
+    return filtered.slice(start, start + VEHICLES_PAGE_SIZE);
+  }, [filtered, page]);
+
+  const visiblePages = useMemo(
+    () => getVisiblePageNumbers(page, totalPages, PAGE_BUTTON_WINDOW),
+    [page, totalPages],
+  );
+
+  const isDbEmpty = !loading && vehicles.length === 0;
+  const isFilteredEmpty = !loading && vehicles.length > 0 && filtered.length === 0;
+  const listEmpty = isDbEmpty || isFilteredEmpty;
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, typeFilter, minFuel, alertsOnly]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const toggleSelect = (id) => {
     setSelectedIds((prev) => {
@@ -177,7 +289,7 @@ export default function VehiclesPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filtered.length) {
+    if (selectedIds.size === filtered.length && filtered.every((v) => selectedIds.has(v.id))) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(filtered.map((v) => v.id)));
@@ -209,9 +321,15 @@ export default function VehiclesPage() {
     navigate('/map');
   };
 
+  const selectedLabel = t('vehicles.vehiclesSelected', {
+    count: formatNumber(selectedIds.size, { maximumFractionDigits: 0 }),
+  });
+
+  const allFilteredSelected = filtered.length > 0
+    && filtered.every((v) => selectedIds.has(v.id));
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
+    <div dir={dir} className="space-y-6 animate-fade-in">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-100">{t('vehicles.pageTitle')}</h1>
@@ -224,7 +342,6 @@ export default function VehiclesPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* View toggle */}
           <div className="flex rounded-lg border border-slate-600/30 overflow-hidden">
             <button
               type="button"
@@ -253,6 +370,16 @@ export default function VehiclesPage() {
           <Button
             variant="secondary"
             size="sm"
+            leftIcon={<RefreshCw className="w-4 h-4" />}
+            onClick={refreshFleet}
+            loading={loading}
+          >
+            {t('common.refresh')}
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
             leftIcon={<SlidersHorizontal className="w-4 h-4" />}
             onClick={() => setShowFilters((p) => !p)}
           >
@@ -261,7 +388,6 @@ export default function VehiclesPage() {
         </div>
       </div>
 
-      {/* Search + advanced filters */}
       <div className="capture-card p-4 space-y-4">
         <div className="relative">
           <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -333,19 +459,33 @@ export default function VehiclesPage() {
         )}
       </div>
 
-      {/* Bulk actions bar */}
-      {selectedIds.size > 0 && (
+      {error && (
+        <div className="px-4 py-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-sm text-rose-300 flex items-center justify-between gap-3">
+          <span>{error}</span>
+          <Button variant="secondary" size="sm" onClick={refreshFleet}>{t('common.retry')}</Button>
+        </div>
+      )}
+
+      {loading && (
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      )}
+
+      {!loading && selectedIds.size > 0 && (
         <div className="capture-card px-4 py-3 flex flex-wrap items-center justify-between gap-3 animate-[fade-in_0.2s_ease-out]">
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setSelectedIds(new Set())} className="text-slate-400 hover:text-slate-200">
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="text-slate-400 hover:text-slate-200"
+              aria-label={t('vehicles.deselectAll')}
+            >
               <X className="w-4 h-4" />
             </button>
-            <span className="text-sm text-capture-glow font-medium">
-              <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
-                {formatNumber(selectedIds.size, { maximumFractionDigits: 0 })}
-              </span>
-              {' '}{t('vehicles.bulkSelected')}
-            </span>
+            <span className="text-sm text-capture-glow font-medium">{selectedLabel}</span>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" size="sm" leftIcon={<Download className="w-4 h-4" />} onClick={handleBulkExport}>
@@ -361,109 +501,123 @@ export default function VehiclesPage() {
         </p>
       )}
 
-      {/* Select all */}
-      {filtered.length > 0 && (
+      {!loading && !listEmpty && (
         <button
           type="button"
           onClick={toggleSelectAll}
           className="flex items-center gap-2 text-xs text-capture-metallic hover:text-capture-glow transition-colors"
         >
-          {selectedIds.size === filtered.length
+          {allFilteredSelected
             ? <CheckSquare className="w-4 h-4 text-capture-glow" />
             : <Square className="w-4 h-4" />}
-          {selectedIds.size === filtered.length ? t('vehicles.deselectAll') : t('common.selectAll')}
+          {allFilteredSelected ? t('vehicles.deselectAll') : t('common.selectAll')}
         </button>
       )}
 
-      {/* Grid view */}
-      {viewMode === 'grid' && (
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((vehicle) => (
-            <div key={vehicle.id} className="relative">
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); toggleSelect(vehicle.id); }}
-                className="absolute top-3 start-3 z-10 p-1 rounded bg-capture-card/80 border border-slate-600/30"
-              >
-                {selectedIds.has(vehicle.id)
-                  ? <CheckSquare className="w-4 h-4 text-capture-glow" />
-                  : <Square className="w-4 h-4 text-slate-500" />}
-              </button>
-              <VehicleCard
-                vehicle={vehicle}
-                isSelected={selectedIds.has(vehicle.id)}
-                onClick={() => setDetailVehicle(vehicle)}
-              />
-            </div>
-          ))}
-        </div>
+      {!loading && listEmpty && (
+        <VehiclesEmptyState isFilteredEmpty={isFilteredEmpty} />
       )}
 
-      {/* List view */}
-      {viewMode === 'list' && (
-        <div className="capture-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-600/20 bg-capture-bg/40">
-                  <th className="w-10 px-3 py-3" />
-                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.vehicle')}</th>
-                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.driver')}</th>
-                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.status')}</th>
-                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.speed')}</th>
-                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.fuel')}</th>
-                  <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.location')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((vehicle) => (
-                  <tr
-                    key={vehicle.id}
-                    onClick={() => setDetailVehicle(vehicle)}
-                    className={cn(
-                      'border-b border-slate-600/10 cursor-pointer transition-colors',
-                      'hover:bg-capture-surface/40',
-                      selectedIds.has(vehicle.id) && 'bg-capture-primary/5',
-                    )}
-                  >
-                    <td className="px-3 py-3">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); toggleSelect(vehicle.id); }}
-                      >
-                        {selectedIds.has(vehicle.id)
-                          ? <CheckSquare className="w-4 h-4 text-capture-glow" />
-                          : <Square className="w-4 h-4 text-slate-500" />}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-slate-200">{vehicle.name}</p>
-                      <p className="text-xs text-slate-500">{formatPlate(vehicle.plate)}</p>
-                    </td>
-                    <td className="px-4 py-3 text-slate-400">{vehicle.driver}</td>
-                    <td className="px-4 py-3"><StatusBadge status={vehicle.status} size="sm" /></td>
-                    <td className="px-4 py-3 text-slate-300">
-                      <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatSpeed(vehicle.speed)}</span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-300">
-                      <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatFuel(vehicle.fuel)}</span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-400 truncate max-w-[180px]">{vehicle.location?.address}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {!loading && !listEmpty && viewMode === 'grid' && (
+        <>
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {paginated.map((vehicle) => (
+              <div key={vehicle.id} className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); toggleSelect(vehicle.id); }}
+                  className="absolute top-3 start-3 z-10 p-1 rounded bg-capture-card/80 border border-slate-600/30"
+                  aria-label={vehicle.name}
+                >
+                  {selectedIds.has(vehicle.id)
+                    ? <CheckSquare className="w-4 h-4 text-capture-glow" />
+                    : <Square className="w-4 h-4 text-slate-500" />}
+                </button>
+                <VehicleCard
+                  vehicle={vehicle}
+                  isSelected={selectedIds.has(vehicle.id)}
+                  onClick={() => setDetailVehicle(vehicle)}
+                />
+              </div>
+            ))}
           </div>
-        </div>
+          <VehiclesPaginationBar
+            page={page}
+            totalPages={totalPages}
+            visiblePages={visiblePages}
+            onPageChange={setPage}
+            t={t}
+          />
+        </>
       )}
 
-      {filtered.length === 0 && (
-        <div className="capture-card py-16 text-center">
-          <p className="text-slate-500">{t('vehicles.noMatch')}</p>
-        </div>
+      {!loading && !listEmpty && viewMode === 'list' && (
+        <>
+          <div className="capture-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-600/20 bg-capture-bg/40">
+                    <th className="w-10 px-3 py-3" />
+                    <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.vehicle')}</th>
+                    <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.driver')}</th>
+                    <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.status')}</th>
+                    <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.speed')}</th>
+                    <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.fuel')}</th>
+                    <th className="text-start px-4 py-3 text-slate-400 font-semibold">{t('vehicles.table.location')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginated.map((vehicle) => (
+                    <tr
+                      key={vehicle.id}
+                      onClick={() => setDetailVehicle(vehicle)}
+                      className={cn(
+                        'border-b border-slate-600/10 cursor-pointer transition-colors',
+                        'hover:bg-capture-surface/40',
+                        selectedIds.has(vehicle.id) && 'bg-capture-primary/5',
+                      )}
+                    >
+                      <td className="px-3 py-3">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); toggleSelect(vehicle.id); }}
+                          aria-label={vehicle.name}
+                        >
+                          {selectedIds.has(vehicle.id)
+                            ? <CheckSquare className="w-4 h-4 text-capture-glow" />
+                            : <Square className="w-4 h-4 text-slate-500" />}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-200">{vehicle.name}</p>
+                        <p className="text-xs text-slate-500" dir="ltr">{formatPlate(vehicle.plate)}</p>
+                      </td>
+                      <td className="px-4 py-3 text-slate-400">{vehicle.driver}</td>
+                      <td className="px-4 py-3"><StatusBadge status={vehicle.status} size="sm" /></td>
+                      <td className="px-4 py-3 text-slate-300">
+                        <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatSpeed(vehicle.speed)}</span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-300">
+                        <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatFuel(vehicle.fuel)}</span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-400 truncate max-w-[180px]">{vehicle.location?.address}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <VehiclesPaginationBar
+            page={page}
+            totalPages={totalPages}
+            visiblePages={visiblePages}
+            onPageChange={setPage}
+            t={t}
+          />
+        </>
       )}
 
-      {/* Detail modal */}
       <VehicleDetailModal
         vehicle={detailVehicle}
         open={!!detailVehicle}
