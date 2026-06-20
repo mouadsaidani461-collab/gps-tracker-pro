@@ -6,7 +6,7 @@ import { useLocale } from '../../context/LocaleContext';
 import { NUMERIC_DISPLAY_CLASS, toWesternNumerals } from '../../utils/formatters';
 import {
   validateRequiredName,
-  validateUniqueId,
+  validateImei,
   validateMoroccoPhone,
   checkDuplicateUniqueId,
 } from '../../utils/validation';
@@ -41,8 +41,10 @@ function validateForm(form, isEdit, existingDevices, editingId, language) {
   const nameErr = validateRequiredName(form.name, 'devices.form.deviceName', language);
   if (nameErr) errors.name = nameErr;
 
-  const idErr = validateUniqueId(form.uniqueId, { minLength: 5, required: !isEdit, language });
-  if (idErr) errors.uniqueId = idErr;
+  if (!isEdit) {
+    const imeiErr = validateImei(form.uniqueId);
+    if (imeiErr) errors.uniqueId = imeiErr;
+  }
 
   const dupErr = checkDuplicateUniqueId(form.uniqueId, existingDevices, editingId, language);
   if (dupErr) errors.uniqueId = dupErr;
@@ -60,6 +62,7 @@ function DeviceFormBody({
   onSubmit,
   saving,
   onClose,
+  submitError = '',
 }) {
   const { t, language } = useLocale();
   const isEdit = Boolean(device);
@@ -91,6 +94,9 @@ function DeviceFormBody({
 
   return (
     <>
+      {submitError && (
+        <p className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 mb-4">{submitError}</p>
+      )}
       <div className="grid sm:grid-cols-2 gap-4">
         <Input
           id="device-name"
@@ -169,6 +175,7 @@ export default function DeviceFormModal({
   existingDevices = [],
   onSubmit,
   saving = false,
+  submitError = '',
 }) {
   const { t } = useLocale();
   const isEdit = Boolean(device);
@@ -191,6 +198,7 @@ export default function DeviceFormModal({
           onSubmit={onSubmit}
           saving={saving}
           onClose={onClose}
+          submitError={submitError}
         />
       )}
     </Modal>

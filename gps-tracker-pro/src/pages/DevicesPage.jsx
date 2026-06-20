@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Plus, Search, RefreshCw, Download, Trash2, Pencil,
   HardDrive, CheckSquare, Square, ChevronUp, ChevronDown, ChevronsUpDown,
@@ -10,6 +10,7 @@ import { useFormatters } from '../hooks/useFormatters';
 import {
   formatNumber, NUMERIC_DISPLAY_CLASS,
 } from '../utils/formatters';
+import { getVisiblePageNumbers } from '../utils/pagination';
 import {
   formatDeviceRowForExport, rowsToCsv, downloadBlob, exportFilename,
 } from '../utils/exportUtils';
@@ -24,8 +25,106 @@ function cn(...classes) {
 }
 
 const PAGE_SIZES = [10, 25, 50];
+const PAGE_BUTTON_WINDOW = 7;
 
 const COLUMN_KEYS = ['name', 'uniqueId', 'groupName', 'status', 'lastUpdate'];
+
+function DeviceEmptyState({ isFilteredEmpty, onCreate }) {
+  const { t } = useLocale();
+
+  return (
+    <div className="capture-card p-8 md:p-16 text-center">
+      <HardDrive className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+      <p className="text-slate-400 font-medium">
+        {isFilteredEmpty ? t('devices.searchEmpty') : t('devices.empty')}
+      </p>
+      {!isFilteredEmpty && (
+        <p className="text-sm text-slate-500 mt-1 mb-4">{t('devices.emptyHint')}</p>
+      )}
+      {!isFilteredEmpty && (
+        <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={onCreate}>
+          {t('devices.addFirst')}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function DevicePaginationBar({
+  page,
+  totalPages,
+  pageSize,
+  visiblePages,
+  onPageChange,
+  onPageSizeChange,
+  t,
+}) {
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-600/20">
+      <div className="flex items-center gap-2 text-xs text-slate-400">
+        <span>{t('devices.show')}</span>
+        <select
+          value={pageSize}
+          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          className="px-2 py-1 rounded bg-capture-bg/60 border border-slate-600/30 text-slate-200"
+        >
+          {PAGE_SIZES.map((size) => (
+            <option key={size} value={size}>
+              {formatNumber(size, { maximumFractionDigits: 0 })}
+            </option>
+          ))}
+        </select>
+        <span>
+          {t('devices.pageOf', {
+            page: formatNumber(page, { maximumFractionDigits: 0 }),
+            total: formatNumber(totalPages, { maximumFractionDigits: 0 }),
+          })}
+        </span>
+      </div>
+      <div className={cn('flex items-center gap-1', NUMERIC_DISPLAY_CLASS)} dir="ltr">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+          className={cn(
+            'p-2 rounded-lg transition-colors',
+            page <= 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-capture-surface/60 text-capture-glow',
+          )}
+          aria-label={t('common.previousPage')}
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+        {visiblePages.map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => onPageChange(p)}
+            className={cn(
+              'w-8 h-8 rounded-lg text-xs font-medium transition-colors',
+              page === p
+                ? 'bg-capture-primary/20 text-capture-glow border border-capture-primary/40'
+                : 'text-slate-400 hover:bg-capture-surface/60',
+            )}
+          >
+            {formatNumber(p, { maximumFractionDigits: 0 })}
+          </button>
+        ))}
+        <button
+          type="button"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+          className={cn(
+            'p-2 rounded-lg transition-colors',
+            page >= totalPages ? 'opacity-40 cursor-not-allowed' : 'hover:bg-capture-surface/60 text-capture-glow',
+          )}
+          aria-label={t('common.nextPage')}
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function DevicesPage() {
   const { dir, t } = useLocale();
@@ -62,6 +161,7 @@ export default function DevicesPage() {
   const [pageSize, setPageSize] = useState(10);
   const [formOpen, setFormOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState(null);
+  const [formSubmitError, setFormSubmitError] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -91,6 +191,19 @@ export default function DevicesPage() {
     const start = (page - 1) * pageSize;
     return sortedDevices.slice(start, start + pageSize);
   }, [sortedDevices, page, pageSize]);
+
+  const visiblePages = useMemo(
+    () => getVisiblePageNumbers(page, totalPages, PAGE_BUTTON_WINDOW),
+    [page, totalPages],
+  );
+
+  const isDbEmpty = !loading && devices.length === 0;
+  const isFilteredEmpty = !loading && devices.length > 0 && filteredDevices.length === 0;
+  const listEmpty = isDbEmpty || isFilteredEmpty;
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const stats = useMemo(() => ({
     total: devices.length,
@@ -126,16 +239,19 @@ export default function DevicesPage() {
 
   const openCreate = () => {
     setEditingDevice(null);
+    setFormSubmitError('');
     setFormOpen(true);
   };
 
   const openEdit = (device) => {
     setEditingDevice(device);
+    setFormSubmitError('');
     setFormOpen(true);
   };
 
   const handleFormSubmit = async (payload) => {
     setSaving(true);
+    setFormSubmitError('');
     try {
       if (editingDevice) {
         await updateDevice(editingDevice.id, payload);
@@ -143,6 +259,8 @@ export default function DevicesPage() {
         await createDevice(payload);
       }
       setFormOpen(false);
+    } catch (err) {
+      setFormSubmitError(err.message || t('devices.form.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -195,8 +313,17 @@ export default function DevicesPage() {
     setTimeout(() => setBulkMsg(null), 2500);
   }, [devices, selectedIds, t]);
 
+  const handlePageSizeChange = (size) => {
+    setPageSize(size);
+    setPage(1);
+  };
+
   const allPageSelected = paginatedDevices.length > 0
     && paginatedDevices.every((d) => selectedIds.has(d.id));
+
+  const selectedLabel = t('devices.devicesSelected', {
+    count: formatNumber(selectedIds.size, { maximumFractionDigits: 0 }),
+  });
 
   return (
     <div dir={dir} className="space-y-6 animate-fade-in">
@@ -217,7 +344,7 @@ export default function DevicesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { labelKey: 'devices.stats.total', value: stats.total, color: 'text-slate-100' },
           { labelKey: 'devices.stats.online', value: stats.online, color: 'text-capture-glow' },
@@ -284,12 +411,7 @@ export default function DevicesPage() {
 
       {selectedIds.size > 0 && (
         <div className="sticky top-0 z-20 capture-card p-3 flex flex-wrap items-center justify-between gap-3 border border-capture-primary/30 shadow-glow-sm">
-          <p className="text-sm text-slate-200">
-            <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
-              {formatNumber(selectedIds.size, { maximumFractionDigits: 0 })}
-            </span>
-            {' '}{t('devices.deviceSelected')}
-          </p>
+          <p className="text-sm text-slate-200">{selectedLabel}</p>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" size="sm" leftIcon={<Download className="w-4 h-4" />} onClick={handleBulkExport}>
               {t('devices.exportCsv')}
@@ -318,14 +440,14 @@ export default function DevicesPage() {
                   </button>
                 </th>
                 {columns.map(({ key, label }) => (
-                  <th key={key} className="text-right px-4 py-3 font-semibold text-slate-300">
+                  <th key={key} className="text-start px-4 py-3 font-semibold text-slate-300">
                     <button type="button" className="inline-flex items-center gap-1 hover:text-capture-glow" onClick={() => handleSort(key)}>
                       {label}
                       <SortIcon column={key} />
                     </button>
                   </th>
                 ))}
-                <th className="text-right px-4 py-3 font-semibold text-slate-300">{t('common.actions')}</th>
+                <th className="text-start px-4 py-3 font-semibold text-slate-300">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -335,22 +457,21 @@ export default function DevicesPage() {
                     <SkeletonTable rows={5} cols={6} />
                   </td>
                 </tr>
-              ) : paginatedDevices.length === 0 ? (
+              ) : listEmpty ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-16 text-center">
-                    <HardDrive className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                    <p className="text-slate-400 font-medium">{t('devices.empty')}</p>
-                    <p className="text-sm text-slate-500 mt-1 mb-4">{t('devices.emptyHint')}</p>
-                    <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={openCreate}>
-                      {t('devices.addFirst')}
-                    </Button>
+                  <td colSpan={7} className="p-0">
+                    <DeviceEmptyState isFilteredEmpty={isFilteredEmpty} onCreate={openCreate} />
                   </td>
                 </tr>
               ) : (
                 paginatedDevices.map((device) => (
                   <tr key={device.id} className="border-b border-slate-600/15 hover:bg-capture-card/40">
                     <td className="px-3 py-3">
-                      <button type="button" onClick={() => toggleSelected(device.id)}>
+                      <button
+                        type="button"
+                        onClick={() => toggleSelected(device.id)}
+                        aria-label={device.name}
+                      >
                         {selectedIds.has(device.id)
                           ? <CheckSquare className="w-4 h-4 text-capture-glow" />
                           : <Square className="w-4 h-4 text-slate-500" />}
@@ -371,10 +492,22 @@ export default function DevicesPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
-                        <button type="button" onClick={() => openEdit(device)} className="p-2 rounded-lg text-slate-400 hover:text-capture-glow hover:bg-capture-primary/10" title={t('common.edit')}>
+                        <button
+                          type="button"
+                          onClick={() => openEdit(device)}
+                          className="p-2 rounded-lg text-slate-400 hover:text-capture-glow hover:bg-capture-primary/10"
+                          title={t('common.edit')}
+                          aria-label={t('common.edit')}
+                        >
                           <Pencil className="w-4 h-4" />
                         </button>
-                        <button type="button" onClick={() => openDelete(device)} className="p-2 rounded-lg text-rose-400 hover:bg-rose-500/10" title={t('common.delete')}>
+                        <button
+                          type="button"
+                          onClick={() => openDelete(device)}
+                          className="p-2 rounded-lg text-rose-400 hover:bg-rose-500/10"
+                          title={t('common.delete')}
+                          aria-label={t('common.delete')}
+                        >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -387,36 +520,15 @@ export default function DevicesPage() {
         </div>
 
         {!loading && sortedDevices.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-600/20">
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <span>{t('devices.show')}</span>
-              <select
-                value={pageSize}
-                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
-                className="px-2 py-1 rounded bg-capture-bg/60 border border-slate-600/30 text-slate-200"
-              >
-                {PAGE_SIZES.map((size) => (
-                  <option key={size} value={size}>
-                    {formatNumber(size, { maximumFractionDigits: 0 })}
-                  </option>
-                ))}
-              </select>
-              <span>
-                {t('common.page')}{' '}
-                <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(page, { maximumFractionDigits: 0 })}</span>
-                {' '}{t('common.of')}{' '}
-                <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatNumber(totalPages, { maximumFractionDigits: 0 })}</span>
-              </span>
-            </div>
-            <div className={cn('flex items-center gap-1', NUMERIC_DISPLAY_CLASS)} dir="ltr">
-              <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="p-2 rounded-lg disabled:opacity-40 hover:bg-capture-surface/60">
-                <ChevronRight className="w-4 h-4" />
-              </button>
-              <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="p-2 rounded-lg disabled:opacity-40 hover:bg-capture-surface/60">
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <DevicePaginationBar
+            page={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            visiblePages={visiblePages}
+            onPageChange={setPage}
+            onPageSizeChange={handlePageSizeChange}
+            t={t}
+          />
         )}
       </div>
 
@@ -424,52 +536,63 @@ export default function DevicesPage() {
       <div className="md:hidden space-y-3">
         {loading ? (
           <SkeletonTable rows={4} cols={1} />
-        ) : paginatedDevices.length === 0 ? (
-          <div className="capture-card p-8 text-center">
-            <HardDrive className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <p className="text-slate-400 font-medium">{t('devices.empty')}</p>
-            <Button variant="primary" size="sm" className="mt-4" leftIcon={<Plus className="w-4 h-4" />} onClick={openCreate}>
-              {t('devices.addFirst')}
-            </Button>
-          </div>
+        ) : listEmpty ? (
+          <DeviceEmptyState isFilteredEmpty={isFilteredEmpty} onCreate={openCreate} />
         ) : (
-          paginatedDevices.map((device) => (
-            <div key={device.id} className="capture-card p-4 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <button type="button" onClick={() => toggleSelected(device.id)}>
-                    {selectedIds.has(device.id)
-                      ? <CheckSquare className="w-4 h-4 text-capture-glow mt-1" />
-                      : <Square className="w-4 h-4 text-slate-500 mt-1" />}
-                  </button>
-                  <div>
-                    <p className="font-semibold text-slate-100">{device.name}</p>
-                    <p className={cn('text-xs text-slate-500 mt-0.5', NUMERIC_DISPLAY_CLASS)} dir="ltr">
-                      {device.uniqueId}
-                    </p>
+          <>
+            {paginatedDevices.map((device) => (
+              <div key={device.id} className="capture-card p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleSelected(device.id)}
+                      aria-label={device.name}
+                    >
+                      {selectedIds.has(device.id)
+                        ? <CheckSquare className="w-4 h-4 text-capture-glow mt-1" />
+                        : <Square className="w-4 h-4 text-slate-500 mt-1" />}
+                    </button>
+                    <div>
+                      <p className="font-semibold text-slate-100">{device.name}</p>
+                      <p className={cn('text-xs text-slate-500 mt-0.5', NUMERIC_DISPLAY_CLASS)} dir="ltr">
+                        {device.uniqueId}
+                      </p>
+                    </div>
                   </div>
+                  <DeviceStatusBadge status={device.status} />
                 </div>
-                <DeviceStatusBadge status={device.status} />
+                <div className="text-xs text-slate-400 space-y-1">
+                  <p>{t('devices.groupLabel')}: {device.groupName}</p>
+                  <p>
+                    {t('devices.lastUpdateLabel')}:{' '}
+                    <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
+                      {device.lastUpdate ? formatDateTime(device.lastUpdate) : '—'}
+                    </span>
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" leftIcon={<Pencil className="w-4 h-4" />} onClick={() => openEdit(device)}>
+                    {t('common.edit')}
+                  </Button>
+                  <Button variant="danger" size="sm" leftIcon={<Trash2 className="w-4 h-4" />} onClick={() => openDelete(device)}>
+                    {t('common.delete')}
+                  </Button>
+                </div>
               </div>
-              <div className="text-xs text-slate-400 space-y-1">
-                <p>{t('devices.groupLabel')}: {device.groupName}</p>
-                <p>
-                  {t('devices.lastUpdateLabel')}:{' '}
-                  <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
-                    {device.lastUpdate ? formatDateTime(device.lastUpdate) : '—'}
-                  </span>
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="secondary" size="sm" leftIcon={<Pencil className="w-4 h-4" />} onClick={() => openEdit(device)}>
-                  {t('common.edit')}
-                </Button>
-                <Button variant="danger" size="sm" leftIcon={<Trash2 className="w-4 h-4" />} onClick={() => openDelete(device)}>
-                  {t('common.delete')}
-                </Button>
-              </div>
+            ))}
+            <div className="capture-card overflow-hidden border border-slate-600/25">
+              <DevicePaginationBar
+                page={page}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                visiblePages={visiblePages}
+                onPageChange={setPage}
+                onPageSizeChange={handlePageSizeChange}
+                t={t}
+              />
             </div>
-          ))
+          </>
         )}
       </div>
 
@@ -478,8 +601,10 @@ export default function DevicesPage() {
         onClose={() => setFormOpen(false)}
         device={editingDevice}
         groups={groups}
+        existingDevices={devices}
         onSubmit={handleFormSubmit}
         saving={saving}
+        submitError={formSubmitError}
       />
 
       <DeviceDeleteConfirm

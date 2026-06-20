@@ -142,17 +142,27 @@ export function DeviceProvider({ children }) {
   }, []);
 
   const createDevice = useCallback(async (payload) => {
-    const created = await deviceApi.create(payload);
-    await fetchDevices();
-    notify('success', t('devices.toast.added'), created?.name ?? payload.name);
-    return created;
+    try {
+      const created = await deviceApi.create(payload);
+      await fetchDevices();
+      notify('success', t('devices.toast.added'), created?.name ?? payload.name);
+      return created;
+    } catch (err) {
+      notify('alert', t('devices.toast.saveFailed'), err.message || t('devices.toast.saveFailed'));
+      throw err;
+    }
   }, [fetchDevices, notify, t]);
 
   const updateDevice = useCallback(async (id, payload) => {
-    const updated = await deviceApi.update(id, payload);
-    await fetchDevices();
-    notify('success', t('devices.toast.updated'), updated?.name ?? payload.name);
-    return updated;
+    try {
+      const updated = await deviceApi.update(id, payload);
+      await fetchDevices();
+      notify('success', t('devices.toast.updated'), updated?.name ?? payload.name);
+      return updated;
+    } catch (err) {
+      notify('alert', t('devices.toast.saveFailed'), err.message || t('devices.toast.saveFailed'));
+      throw err;
+    }
   }, [fetchDevices, notify, t]);
 
   const deleteDevice = useCallback(async (id) => {
@@ -174,12 +184,12 @@ export function DeviceProvider({ children }) {
   }, [devices, notify, t]);
 
   const bulkDelete = useCallback(async (ids) => {
-    const idList = [...ids];
+    const idList = [...ids].map(String);
     const snapshot = devices;
-    setDevices((prev) => prev.filter((d) => !idList.includes(d.id)));
+    setDevices((prev) => prev.filter((d) => !idList.includes(String(d.id))));
     clearSelected();
     try {
-      await deviceApi.bulkRemove(idList);
+      await deviceApi.bulkRemove(ids);
       notify('success', t('devices.toast.bulkDeleted'), t('devices.toast.bulkDeletedDetail', { count: idList.length }));
     } catch (err) {
       setDevices(snapshot);
