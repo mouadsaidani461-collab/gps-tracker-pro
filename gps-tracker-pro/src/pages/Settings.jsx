@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   User, Bell, Shield, Palette, Globe, Camera, Save,
   CheckCircle, Moon, Sun, Volume2, VolumeX, Mail, Lock,
@@ -15,18 +15,18 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNotificationContext } from '../context/NotificationContext';
 import { useLocale } from '../context/LocaleContext';
+import { SETTINGS_KEY } from '../i18n';
 import { COLORS } from '../utils/constants';
 import { NUMERIC_DISPLAY_CLASS, toWesternNumerals } from '../utils/formatters';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import TotpEnrollmentPanel from '../components/settings/TotpEnrollmentPanel';
 import NotificationDeviceFilter from '../components/settings/NotificationDeviceFilter';
+import { validateProfile, validateSecurity } from './settings/validation';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
 }
-
-const SETTINGS_KEY = 'capture_settings';
 
 const TAB_DEFS = [
   { id: 'profile', labelKey: 'settings.tabs.profile', icon: User },
@@ -162,12 +162,13 @@ function persistSettings(data) {
   }
 }
 
-function Toggle({ checked, onChange, disabled = false }) {
+function Toggle({ checked, onChange, disabled = false, ariaLabel }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={ariaLabel}
       disabled={disabled}
       onClick={() => { if (!disabled) onChange(!checked); }}
       className={cn(
@@ -234,41 +235,17 @@ function NotificationItemRow({
             {soundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
         )}
-        <Toggle checked={enabled} onChange={onToggle} />
+        <Toggle checked={enabled} onChange={onToggle} ariaLabel={label} />
       </div>
     </div>
   );
 }
 
-function validateProfile(profile, t) {
-  const errors = {};
-  if (!profile.name?.trim()) errors.name = t('settings.validation.nameRequired');
-  else if (profile.name.trim().length < 2) errors.name = t('settings.validation.nameMin');
-  if (!profile.email?.trim()) errors.email = t('settings.validation.emailRequired');
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email.trim())) {
-    errors.email = t('settings.validation.emailInvalid');
-  }
-  if (profile.phone?.trim() && !/^\+?[\d\s-]{8,}$/.test(profile.phone.trim())) {
-    errors.phone = t('settings.validation.phoneInvalid');
-  }
-  return errors;
-}
-
-function validateSecurity(passwords, changing, t) {
-  if (!changing) return {};
-  const errors = {};
-  if (!passwords.current) errors.current = t('settings.validation.currentPasswordRequired');
-  if (!passwords.next) errors.next = t('settings.validation.newPasswordRequired');
-  else if (passwords.next.length < 6) errors.next = t('settings.validation.passwordMin');
-  if (passwords.next !== passwords.confirm) errors.confirm = t('settings.validation.passwordMismatch');
-  return errors;
-}
-
 export default function Settings() {
-  const { user, role, updateProfile } = useAuth();
+  const { user, role, updateProfile, verifyCurrentPassword } = useAuth();
   const { mode, accentColor, presets, setAccentColor, setThemeMode } = useTheme();
   const { isConnected, pushNotification } = useNotificationContext();
-  const { language, setLanguage, t, languages } = useLocale();
+  const { language, setLanguage, t, languages, dir } = useLocale();
 
   const stored = loadSettings();
 
@@ -286,7 +263,7 @@ export default function Settings() {
     name: stored.profile?.name ?? user?.name ?? '',
     email: stored.profile?.email ?? user?.email ?? '',
     phone: stored.profile?.phone ?? user?.phone ?? '',
-    company: stored.profile?.company ?? user?.company ?? '',
+    company: stored.profile?.company ?? '',
   });
   const [notifSettings, setNotifSettings] = useState({
     ...DEFAULT_NOTIF,
@@ -317,6 +294,48 @@ export default function Settings() {
   }, [user]);
 
   const changingPassword = passwords.current || passwords.next || passwords.confirm;
+  const tabBaselines = useRef(null);
+
+  const getTabSnapshot = useCallback((tab) => {
+    switch (tab) {
+      case 'profile':
+        return JSON.stringify(profile);
+      case 'notifications':
+        return JSON.stringify({ notifSettings, soundEnabled });
+      case 'security':
+        return JSON.stringify(passwords);
+      case 'appearance':
+        return JSON.stringify({ customAccent, mode });
+      case 'language':
+        return language;
+      default:
+        return '';
+    }
+  }, [profile, notifSettings, soundEnabled, passwords, customAccent, mode, language]);
+
+  const syncTabBaseline = useCallback((tab) => {
+    if (!tabBaselines.current) tabBaselines.current = {};
+    tabBaselines.current[tab] = getTabSnapshot(tab);
+  }, [getTabSnapshot]);
+
+  const isTabDirty = useCallback((tab) => {
+    if (!tabBaselines.current?.[tab]) return false;
+    return getTabSnapshot(tab) !== tabBaselines.current[tab];
+  }, [getTabSnapshot]);
+
+  useEffect(() => {
+    if (tabBaselines.current) return;
+    tabBaselines.current = Object.fromEntries(
+      TAB_DEFS.map(({ id }) => [id, getTabSnapshot(id)]),
+    );
+  }, [getTabSnapshot]);
+
+  const requestTab = (id) => {
+    if (id === activeTab) return;
+    if (isTabDirty(activeTab) && !window.confirm(t('settings.unsavedConfirm'))) return;
+    setActiveTab(id);
+    setFieldErrors({});
+  };
 
   const handleSave = useCallback(async () => {
     setFieldErrors({});
@@ -326,7 +345,7 @@ export default function Settings() {
     if (activeTab === 'profile') {
       errors = validateProfile(profile, t);
     } else if (activeTab === 'security' && changingPassword) {
-      errors = validateSecurity(passwords, true, t);
+      errors = validateSecurity(passwords, true, t, language);
     }
 
     if (Object.keys(errors).length > 0) {
@@ -349,6 +368,7 @@ export default function Settings() {
         persistSettings({ notifications: notifSettings, soundEnabled });
       } else if (activeTab === 'security') {
         if (changingPassword) {
+          await verifyCurrentPassword(passwords.current);
           await updateProfile({ password: passwords.next });
           setPasswords({ current: '', next: '', confirm: '' });
         }
@@ -358,6 +378,8 @@ export default function Settings() {
       } else if (activeTab === 'language') {
         persistSettings({ language });
       }
+
+      syncTabBaseline(activeTab);
 
       const activeTabLabel = tabs.find((tab) => tab.id === activeTab)?.label ?? activeTab;
       pushNotification?.({
@@ -375,11 +397,12 @@ export default function Settings() {
     }
   }, [
     activeTab, profile, notifSettings, soundEnabled, passwords,
-    changingPassword, customAccent, mode, language, setAccentColor, pushNotification, updateProfile, t, tabs,
+    changingPassword, customAccent, mode, language, setAccentColor, pushNotification,
+    updateProfile, verifyCurrentPassword, syncTabBaseline, t, tabs,
   ]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div dir={dir} className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-100">{t('settings.title')}</h1>
@@ -396,7 +419,8 @@ export default function Settings() {
             <button
               key={id}
               type="button"
-              onClick={() => { setActiveTab(id); setFieldErrors({}); }}
+              onClick={() => requestTab(id)}
+              aria-current={activeTab === id ? 'page' : undefined}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
                 activeTab === id
@@ -446,7 +470,10 @@ export default function Settings() {
                   </div>
                   <button
                     type="button"
-                    className="absolute -bottom-1 -start-1 p-1.5 bg-capture-card rounded-full border border-slate-600/30 hover:shadow-glow-sm transition-all"
+                    disabled
+                    aria-disabled="true"
+                    title={t('settings.profile.photoSoon')}
+                    className="absolute -bottom-1 -start-1 p-1.5 bg-capture-card rounded-full border border-slate-600/30 opacity-50 cursor-not-allowed"
                     aria-label={t('settings.profile.changePhoto')}
                   >
                     <Camera className="w-3.5 h-3.5 text-capture-metallic" />
@@ -454,7 +481,7 @@ export default function Settings() {
                 </div>
                 <div>
                   <p className="font-medium text-slate-100">{profile.name || '—'}</p>
-                  <p className="text-sm text-slate-400">{profile.email}</p>
+                  <p className="text-sm text-slate-400" dir="ltr">{profile.email}</p>
                 </div>
               </div>
 
@@ -471,6 +498,7 @@ export default function Settings() {
                   id="profile-email"
                   label={t('settings.profile.email')}
                   type="email"
+                  dir="ltr"
                   value={profile.email}
                   onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                   error={fieldErrors.email}
@@ -492,6 +520,7 @@ export default function Settings() {
                   label={t('settings.profile.company')}
                   value={profile.company}
                   onChange={(e) => setProfile({ ...profile, company: e.target.value })}
+                  hint={t('settings.profile.companyLocalHint')}
                 />
               </div>
             </div>
@@ -513,7 +542,11 @@ export default function Settings() {
                     <p className="text-xs text-slate-500">{t('settings.notifications.soundDesc')}</p>
                   </div>
                 </div>
-                <Toggle checked={soundEnabled} onChange={setSoundEnabled} />
+                <Toggle
+                  checked={soundEnabled}
+                  onChange={setSoundEnabled}
+                  ariaLabel={t('settings.notifications.sound')}
+                />
               </div>
 
               <div className="rounded-xl bg-capture-bg/40 border border-slate-600/20 px-4">

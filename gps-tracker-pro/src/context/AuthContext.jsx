@@ -210,6 +210,27 @@ export function AuthProvider({ children }) {
     return updated;
   }, [user]);
 
+  const verifyCurrentPassword = useCallback(async (password) => {
+    if (!user?.email) {
+      throw new Error(translate(getStoredLanguage(), 'auth.noActiveSession'));
+    }
+    try {
+      await sessionApi.login(user.email, password);
+      const sessionUser = await sessionApi.get();
+      if (sessionUser?.id) {
+        setUser(mapTraccarUser(sessionUser));
+      }
+    } catch (err) {
+      if (err.totpRequired) {
+        return;
+      }
+      if (err.status === 401) {
+        throw new Error(translate(getStoredLanguage(), 'settings.validation.currentPasswordInvalid'), { cause: err });
+      }
+      throw err;
+    }
+  }, [user]);
+
   const updateUserAttribute = useCallback(async (key, value) => {
     if (!user?.id) throw new Error(translate(getStoredLanguage(), 'auth.noActiveSession'));
     const updated = await userApi.updateAttribute(Number(user.id), key, value);
@@ -233,6 +254,7 @@ export function AuthProvider({ children }) {
       logout: () => logout('manual'),
       refreshUser,
       updateProfile,
+      verifyCurrentPassword,
       updateUserAttribute,
       refreshToken: () => true,
       clearSessionExpired,
@@ -254,6 +276,7 @@ export function AuthProvider({ children }) {
       logout,
       refreshUser,
       updateProfile,
+      verifyCurrentPassword,
       updateUserAttribute,
       clearSessionExpired,
       hasRole,

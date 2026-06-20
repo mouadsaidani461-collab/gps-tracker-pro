@@ -8,10 +8,9 @@ import {
   resolveEventPrefKeys,
   WIRED_NOTIFICATION_PREF_IDS,
 } from './traccarEventMapping';
+import { SETTINGS_KEY } from '../i18n';
 
 export { WIRED_NOTIFICATION_PREF_IDS } from './traccarEventMapping';
-
-const SETTINGS_KEY = 'capture_settings';
 
 export function isNotificationPrefWired(prefId) {
   return WIRED_NOTIFICATION_PREF_IDS.has(prefId);
