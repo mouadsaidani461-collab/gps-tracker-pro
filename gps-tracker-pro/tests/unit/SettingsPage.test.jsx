@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import Settings from '../../src/pages/Settings';
 import { renderWithLocale } from '../helpers/renderWithLocale';
 
@@ -57,8 +58,14 @@ vi.mock('../../src/components/settings/NotificationDeviceFilter', () => ({
   default: () => <div data-testid="device-filter">Filter</div>,
 }));
 
-function renderPage() {
-  return render(renderWithLocale(<Settings />));
+function renderPage(initialEntries = ['/settings']) {
+  return render(
+    renderWithLocale(
+      <MemoryRouter initialEntries={initialEntries}>
+        <Settings />
+      </MemoryRouter>,
+    ),
+  );
 }
 
 describe('Settings page', () => {

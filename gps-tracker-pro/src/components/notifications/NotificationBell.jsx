@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Bell, CheckCheck, Wifi, WifiOff } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Bell, CheckCheck, Settings, Trash2, Wifi, WifiOff } from 'lucide-react';
 import { useNotificationContext } from '../../context/NotificationContext';
 import { useLocale } from '../../context/LocaleContext';
 import NotificationItem from './NotificationItem';
 import { isCriticalNotification } from './notificationTypes';
+import { loadSoundEnabled } from '../../utils/notificationPreferences';
 import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
 
 function cn(...classes) {
@@ -49,21 +51,40 @@ function useClickOutside(ref, handler) {
 }
 
 export default function NotificationBell({ onOpenChange, className = '' }) {
-  const { t } = useLocale();
+  const { dir, t } = useLocale();
   const {
     notifications,
     unreadCount,
     markRead,
     markAllRead,
+    remove,
+    clearAll,
     isConnected,
     wsState,
+    reconnect,
   } = useNotificationContext();
 
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const knownIdsRef = useRef(new Set(notifications.map((n) => n.id)));
 
-  useClickOutside(ref, () => setOpen(false));
+  const closePanel = useCallback(() => {
+    setOpen(false);
+    onOpenChange?.(false);
+  }, [onOpenChange]);
+
+  useClickOutside(ref, closePanel);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') closePanel();
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, closePanel]);
 
   const toggleOpen = useCallback(() => {
     setOpen((prev) => {
@@ -80,7 +101,7 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
     notifications.forEach((notif) => {
       if (!known.has(notif.id)) {
         known.add(notif.id);
-        if (!notif.read && isCriticalNotification(notif) && !played) {
+        if (!notif.read && isCriticalNotification(notif) && !played && loadSoundEnabled()) {
           playCriticalSound();
           played = true;
         }
@@ -88,9 +109,11 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
     });
   }, [notifications]);
 
-  const handleMarkAllRead = () => {
-    markAllRead();
-  };
+  const unreadLabel = unreadCount > 0
+    ? t('notifications.unreadCount', {
+      count: formatNumber(unreadCount, { maximumFractionDigits: 0 }),
+    })
+    : t('notifications.title');
 
   return (
     <div className={cn('relative', className)} ref={ref}>
@@ -104,8 +127,9 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
           unreadCount > 0 && 'text-capture-glow',
           open && 'bg-capture-card/80 text-capture-glow shadow-glow-sm',
         )}
-        aria-label={t('notifications.title')}
+        aria-label={unreadLabel}
         aria-expanded={open}
+        aria-haspopup="dialog"
       >
         {unreadCount > 0 && (
           <span
@@ -147,6 +171,9 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
 
       {open && (
         <div
+          dir={dir}
+          role="dialog"
+          aria-label={t('notifications.title')}
           className={cn(
             'absolute start-0 mt-2 w-80 sm:w-96',
             'bg-capture-card/95 backdrop-blur-xl',
@@ -156,8 +183,8 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
             'z-50',
           )}
         >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-600/20">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-600/20 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <h3 className="font-semibold text-slate-100 text-sm">{t('notifications.title')}</h3>
               {unreadCount > 0 && (
                 <span className={cn(
@@ -171,10 +198,10 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <span
                 className={cn(
-                  'flex items-center gap-1 text-[10px]',
+                  'hidden sm:flex items-center gap-1 text-[10px]',
                   isConnected ? 'text-capture-success' : 'text-slate-500',
                 )}
                 title={isConnected ? t('notifications.wsConnected') : t('notifications.wsDisconnected')}
@@ -183,24 +210,42 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
                 {isConnected ? t('notifications.live') : t('notifications.offline')}
               </span>
 
+              {!isConnected && (
+                <button
+                  type="button"
+                  onClick={reconnect}
+                  className="text-[10px] text-capture-glow hover:text-capture-primary transition-colors"
+                >
+                  {t('notifications.reconnect')}
+                </button>
+              )}
+
               {unreadCount > 0 && (
                 <button
                   type="button"
-                  onClick={handleMarkAllRead}
+                  onClick={markAllRead}
                   className="flex items-center gap-1 text-xs text-capture-glow hover:text-capture-primary transition-colors"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
-                  {t('notifications.markAllRead')}
+                  <span className="hidden sm:inline">{t('notifications.markAllRead')}</span>
                 </button>
               )}
             </div>
           </div>
 
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-80 overflow-y-auto" aria-live="polite">
             {notifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Bell className="w-8 h-8 text-slate-600 mb-2" />
+              <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                <Bell className="w-8 h-8 text-slate-600 mb-2" aria-hidden="true" />
                 <p className="text-sm text-slate-500">{t('notifications.empty')}</p>
+                <Link
+                  to="/settings?tab=notifications"
+                  onClick={closePanel}
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs text-capture-glow hover:text-capture-primary transition-colors"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  {t('notifications.settingsLink')}
+                </Link>
               </div>
             ) : (
               notifications.map((notif) => (
@@ -208,6 +253,7 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
                   key={notif.id}
                   notification={notif}
                   onMarkRead={markRead}
+                  onRemove={remove}
                   onClick={(n) => {
                     if (!n.read) markRead(n.id);
                   }}
@@ -217,12 +263,30 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
           </div>
 
           {notifications.length > 0 && (
-            <div className="px-4 py-2 border-t border-slate-600/20 text-center">
+            <div className="px-4 py-2 border-t border-slate-600/20 flex flex-wrap items-center justify-between gap-2">
               <p className="text-[10px] text-slate-500">
                 {t('notifications.footer', {
                   count: formatNumber(notifications.length, { maximumFractionDigits: 0 }),
                 })}
               </p>
+              <div className="flex items-center gap-3">
+                <Link
+                  to="/settings?tab=notifications"
+                  onClick={closePanel}
+                  className="inline-flex items-center gap-1 text-[10px] text-capture-metallic hover:text-capture-glow transition-colors"
+                >
+                  <Settings className="w-3 h-3" />
+                  {t('notifications.settingsLink')}
+                </Link>
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-rose-300 transition-colors"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  {t('notifications.clearAll')}
+                </button>
+              </div>
             </div>
           )}
         </div>

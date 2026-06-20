@@ -7,17 +7,10 @@ import { NOTIFICATION_TYPES } from '../utils/constants';
 import { useSocket } from '../context/SocketContext';
 import { useLocale } from '../context/LocaleContext';
 import { loadNotificationPreferences } from '../utils/notificationPreferences';
+import { mergeNotifications } from '../utils/notificationUtils';
 import { processWebSocketEvents } from '../utils/notificationEventRouter';
 
-function mergeNotifications(prev, incoming, maxNotifications) {
-  const merged = [...incoming, ...prev];
-  const seen = new Set();
-  return merged.filter((item) => {
-    if (seen.has(item.id)) return false;
-    seen.add(item.id);
-    return true;
-  }).slice(0, maxNotifications);
-}
+export { mergeNotifications } from '../utils/notificationUtils';
 
 export function useNotifications(options = {}) {
   const { maxNotifications = 50 } = options;

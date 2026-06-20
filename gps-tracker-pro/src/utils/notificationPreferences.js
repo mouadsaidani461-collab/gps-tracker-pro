@@ -27,6 +27,17 @@ export function loadNotificationPreferences() {
   }
 }
 
+export function loadSoundEnabled() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return true;
+    const parsed = JSON.parse(raw);
+    return parsed.soundEnabled !== false;
+  } catch {
+    return true;
+  }
+}
+
 /**
  * Per-device filter stored in notifications prefs.
  * deviceFilterMode: 'all' | 'allowlist' | 'blocklist'

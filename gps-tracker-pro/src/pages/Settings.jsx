@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   User, Bell, Shield, Palette, Globe, Camera, Save,
   CheckCircle, Moon, Sun, Volume2, VolumeX, Mail, Lock,
@@ -258,7 +259,12 @@ export default function Settings() {
     [t],
   );
 
-  const [activeTab, setActiveTab] = useState('profile');
+  const [searchParams] = useSearchParams();
+  const initialTab = TAB_DEFS.some(({ id }) => id === searchParams.get('tab'))
+    ? searchParams.get('tab')
+    : 'profile';
+
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [profile, setProfile] = useState({
     name: stored.profile?.name ?? user?.name ?? '',
     email: stored.profile?.email ?? user?.email ?? '',

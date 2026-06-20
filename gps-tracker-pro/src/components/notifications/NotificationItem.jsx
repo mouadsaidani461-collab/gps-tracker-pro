@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { useLocale } from '../../context/LocaleContext';
 import { useFormatters } from '../../hooks/useFormatters';
 import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
@@ -14,6 +14,7 @@ function cn(...classes) {
 export default function NotificationItem({
   notification,
   onMarkRead,
+  onRemove,
   onClick,
 }) {
   const { t } = useLocale();
@@ -22,12 +23,19 @@ export default function NotificationItem({
   const config = NOTIFICATION_TYPE_CONFIG[type] ?? NOTIFICATION_TYPE_CONFIG.info;
   const Icon = config.icon;
 
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onClick?.(notification);
+    }
+  };
+
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={() => onClick?.(notification)}
-      onKeyDown={(e) => e.key === 'Enter' && onClick?.(notification)}
+      onKeyDown={handleKeyDown}
       className={cn(
         'group flex gap-3 px-4 py-3 border-b border-slate-600/10',
         'cursor-pointer transition-all duration-200',
@@ -42,7 +50,7 @@ export default function NotificationItem({
           config.iconBg,
         )}
       >
-        <Icon className="w-4 h-4" />
+        <Icon className="w-4 h-4" aria-hidden="true" />
       </div>
 
       <div className="flex-1 min-w-0">
@@ -63,24 +71,44 @@ export default function NotificationItem({
             </p>
           </div>
 
-          {!notification.read && onMarkRead && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onMarkRead(notification.id);
-              }}
-              className={cn(
-                'shrink-0 p-1 rounded-md opacity-0 group-hover:opacity-100',
-                'text-capture-glow hover:text-capture-primary hover:bg-capture-primary/10',
-                'transition-all duration-200',
-              )}
-              title={t('notifications.markRead')}
-              aria-label={t('notifications.markRead')}
-            >
-              <Check className="w-3.5 h-3.5" />
-            </button>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            {!notification.read && onMarkRead && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMarkRead(notification.id);
+                }}
+                className={cn(
+                  'p-1 rounded-md opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+                  'text-capture-glow hover:text-capture-primary hover:bg-capture-primary/10',
+                  'transition-all duration-200',
+                )}
+                title={t('notifications.markRead')}
+                aria-label={t('notifications.markRead')}
+              >
+                <Check className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {onRemove && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove(notification.id);
+                }}
+                className={cn(
+                  'p-1 rounded-md opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+                  'text-slate-500 hover:text-rose-300 hover:bg-rose-500/10',
+                  'transition-all duration-200',
+                )}
+                title={t('notifications.dismiss')}
+                aria-label={t('notifications.dismiss')}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         <p className={cn(
