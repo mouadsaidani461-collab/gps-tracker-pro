@@ -1,18 +1,11 @@
-# Capture Tracking GPS — Hetzner production stack (legacy filename)
-#
-# Prefer: docker-compose.prod.yml (PostgreSQL + full production stack)
-#
-# Prerequisites:
-#   1. Copy .env.production.example → .env.production and fill ALL secrets
-#   2. Point DNS gps-tracker-pro.ma → server IP
-#   3. First deploy: ./scripts/deploy-production.sh init
+# Capture Tracking GPS — production stack (Hetzner)
+# PostgreSQL + Traccar + app (nginx/static) + edge SSL + certbot renewal
 #
 # Usage:
-#   docker compose -f docker-compose.production.yml --env-file .env.production up -d --build
+#   cp .env.production.example .env.production
+#   ./scripts/deploy-production.sh init
 #
-# Public:  https://gps-tracker-pro.ma  (edge nginx → frontend → /api → traccar)
-# Traccar HTTP 8082 and GPS protocols are NOT exposed publicly (internal network only).
-# Optional: set GPS_PUBLIC_PORT=5023 in .env.production if trackers must reach this host.
+# See docs/DEPLOY-HETZNER.md
 
 name: capture-gps-production
 
@@ -31,7 +24,7 @@ services:
       - certbot-etc:/etc/letsencrypt:ro
       - certbot-www:/var/www/certbot:ro
     depends_on:
-      frontend:
+      app:
         condition: service_healthy
     networks:
       - capture-net
@@ -53,7 +46,7 @@ services:
       - capture-net
     restart: unless-stopped
 
-  frontend:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
@@ -70,13 +63,34 @@ services:
       traccar-init:
         condition: service_completed_successfully
     networks:
-      - capture-net
+      capture-net:
+        aliases:
+          - frontend
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
       interval: 30s
       timeout: 3s
       retries: 3
       start_period: 10s
+
+  postgres:
+    image: postgres:14-alpine
+    container_name: capture-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-traccar}
+      POSTGRES_USER: ${POSTGRES_USER:-traccar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - capture-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-traccar} -d ${POSTGRES_DB:-traccar}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   traccar:
     image: traccar/traccar:latest
@@ -86,14 +100,21 @@ services:
       CONFIG_USE_ENVIRONMENT_VARIABLES: "true"
       WEB_REGISTRATION: "false"
       WEB_SERVICE_ACCOUNT_TOKEN: ${TRACCAR_SERVICE_TOKEN:?TRACCAR_SERVICE_TOKEN required}
+      DATABASE_DRIVER: org.postgresql.Driver
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-traccar}
+      DATABASE_USER: ${POSTGRES_USER:-traccar}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
     volumes:
       - traccar-data:/opt/traccar
-      - ./docker/traccar.production.xml:/opt/traccar/conf/traccar.xml:ro
+      - ./docker/traccar.postgres.xml:/opt/traccar/conf/traccar.xml:ro
     expose:
       - "8082"
       - "5023"
     ports:
       - "${GPS_PUBLIC_PORT:-127.0.0.1:5023}:5023"
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - capture-net
     healthcheck:
@@ -128,6 +149,7 @@ networks:
     driver: bridge
 
 volumes:
+  postgres-data:
   traccar-data:
   certbot-etc:
   certbot-www:

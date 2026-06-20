@@ -7,8 +7,9 @@ Deploy **https://gps-tracker-pro.ma** on Hetzner CX33 with Docker Compose, Let's
 ```
 Internet :443/:80
     └── edge (nginx + SSL + HSTS + CSP)
-            └── frontend (React SPA + /api proxy)
+            └── app (React SPA + /api proxy)
                     └── traccar:8082 (internal only)
+                            └── postgres:5432 (internal only)
 GPS devices → optional :5023 (bind via GPS_PUBLIC_PORT)
 ```
 
@@ -17,10 +18,18 @@ GPS devices → optional :5023 (bind via GPS_PUBLIC_PORT)
 
 ## 1. Server prep (Hetzner CX33)
 
+One-shot bootstrap (recommended):
+
+```bash
+sudo DEPLOYER_SSH_PUBKEY="$(cat ~/.ssh/id_ed25519.pub)" ./scripts/setup-server.sh
+```
+
+Or manually:
+
 ```bash
 # Ubuntu 24.04
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y docker.io docker-compose-plugin ufw curl
+sudo apt install -y docker.io docker-compose-plugin ufw curl jq certbot age
 
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
@@ -41,8 +50,10 @@ cp .env.production.example .env.production
 
 openssl rand -hex 32    # → TRACCAR_SERVICE_TOKEN
 openssl rand -base64 24 # → ADMIN_PASSWORD (min 12 chars)
+openssl rand -base64 24 # → POSTGRES_PASSWORD
 
 nano .env.production   # ADMIN_EMAIL, CERTBOT_EMAIL, DOMAIN, secrets
+# Optional: HETZNER_DNS_API_TOKEN (or secrets/hetzner_dns_api_token)
 
 ./scripts/validate-production-secrets.sh
 ./scripts/audit-secrets.sh
@@ -61,7 +72,11 @@ Test: `http://<HETZNER_IP>/` and `http://<HETZNER_IP>/api/server`
 
 Uses `edge.local.conf` (HTTP only, no certificates required).
 
-## 4. DNS (required before SSL)
+## 4. DNS
+
+**Automatic (Hetzner DNS API):** set `HETZNER_DNS_API_TOKEN` in `.env.production` or GitHub Secrets — `init` creates/updates A records.
+
+**Manual:**
 
 | Record | Value |
 |---|---|
@@ -78,13 +93,16 @@ Verify: `dig +short gps-tracker-pro.ma A`
 
 This will:
 
-1. Build frontend image
-2. Start Traccar + bootstrap admin
-3. Start edge on **HTTP** with ACME webroot (`edge.local.conf`)
-4. Obtain Let's Encrypt certificate via certbot
-5. Render `edge.conf` from template and switch to **HTTPS**
-6. Persist `EDGE_NGINX_CONF=./docker/nginx/edge.conf` in `.env.production`
-7. Start certbot renew loop
+1. Create/update Hetzner DNS A records (if API token set)
+2. Build app image
+3. Start PostgreSQL + Traccar + bootstrap admin
+4. Start edge on **HTTP** with ACME webroot (`edge.local.conf`)
+5. Obtain Let's Encrypt certificate via certbot
+6. Render `edge.conf` from template and switch to **HTTPS**
+7. Persist `EDGE_NGINX_CONF=./docker/nginx/edge.conf` in `.env.production`
+8. Start certbot renew loop
+
+Stack file: `docker-compose.prod.yml` (PostgreSQL 14, app, edge, certbot).
 
 ## 6. Verify
 
@@ -96,10 +114,34 @@ curl -sI https://gps-tracker-pro.ma/ | grep -i strict-transport
 
 ## 7. Updates
 
+Manual:
+
 ```bash
 git pull
 ./scripts/deploy-production.sh deploy
 ```
+
+CI/CD (GitHub Actions): push to `main`/`master` runs `.github/workflows/cd.yml` → SSH deploy + verify.
+
+Required GitHub Secrets: `HETZNER_HOST`, `HETZNER_SSH_KEY`, optional `DEPLOY_PATH`, `SLACK_WEBHOOK_URL`.
+
+## 8. Backups
+
+```bash
+# Daily (cron): encrypted pg_dump + traccar volume → rclone/S3
+0 2 * * * /opt/gps-tracker-pro/gps-tracker-pro/scripts/backup.sh
+```
+
+Configure in `.env.production`: `AGE_PUBLIC_KEY` or `BACKUP_GPG_RECIPIENT`, `RCLONE_REMOTE` or `AWS_S3_BUCKET`. Retention: 7 days.
+
+## 9. Monitoring
+
+```bash
+# Every 5 min (cron)
+*/5 * * * * /opt/gps-tracker-pro/gps-tracker-pro/scripts/monitor.sh
+```
+
+Checks: Traccar :8082, HTTPS, disk >80%, SSL <30 days, memory/CPU. Alerts via `ALERT_WEBHOOK_URL` or Mailgun/SendGrid.
 
 ## Security checklist
 
@@ -109,6 +151,7 @@ git pull
 - [ ] Secrets rotated if `.env` was ever committed
 - [ ] `ADMIN_PASSWORD` ≥ 12 chars
 - [ ] `TRACCAR_SERVICE_TOKEN` 32+ hex
+- [ ] `POSTGRES_PASSWORD` ≥ 12 chars
 - [ ] Port 8082 not in `ufw` / Hetzner firewall
 - [ ] Login works; public `/api/users` POST without token returns 401
 
@@ -121,8 +164,10 @@ git pull
 | edge won't start (SSL) | Certs missing — re-run `init` or check `/etc/letsencrypt/live/` |
 | Bootstrap failed | `docker logs traccar-init`; verify service token |
 | Old icons in browser | Hard refresh Cmd+Shift+R; bump `?v=` in manifest |
-| WebSocket disconnects | Edge → frontend nginx handles `Upgrade` |
+| WebSocket disconnects | Edge → app nginx handles `Upgrade` |
 
-## PostgreSQL (المرحلة 3)
+## PostgreSQL
 
-انظر [ROADMAP.md](./ROADMAP.md) — المرحلة 3: migration من H2 إلى PostgreSQL.
+Production uses **PostgreSQL 14** via `docker-compose.prod.yml`. Password only in `.env.production` / `secrets/postgres_password` — never in compose files.
+
+Fresh server: `init` creates a new database. Migrating from H2 requires a separate migration window (see ROADMAP.md).

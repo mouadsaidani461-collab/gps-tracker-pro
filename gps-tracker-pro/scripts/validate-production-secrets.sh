@@ -27,6 +27,7 @@ load_secret_file() {
 }
 load_secret_file TRACCAR_SERVICE_TOKEN "$ROOT/secrets/traccar_service_token"
 load_secret_file ADMIN_PASSWORD "$ROOT/secrets/admin_password"
+load_secret_file POSTGRES_PASSWORD "$ROOT/secrets/postgres_password"
 load_secret_file CERTBOT_EMAIL "$ROOT/secrets/certbot_email"
 
 fail() {
@@ -52,7 +53,16 @@ is_placeholder() {
 [ -n "${CERTBOT_EMAIL:-}" ] || fail "CERTBOT_EMAIL is required for SSL"
 [ -n "${ADMIN_EMAIL:-}" ] || fail "ADMIN_EMAIL is required"
 [ -n "${ADMIN_PASSWORD:-}" ] || fail "ADMIN_PASSWORD is required"
+[ -n "${POSTGRES_PASSWORD:-}" ] || fail "POSTGRES_PASSWORD is required for PostgreSQL"
 [ -n "${TRACCAR_SERVICE_TOKEN:-}" ] || fail "TRACCAR_SERVICE_TOKEN is required"
+
+if is_placeholder "$POSTGRES_PASSWORD"; then
+  fail "POSTGRES_PASSWORD is a placeholder — use: openssl rand -base64 24"
+fi
+
+if [ "${#POSTGRES_PASSWORD}" -lt 12 ]; then
+  fail "POSTGRES_PASSWORD must be at least 12 characters"
+fi
 
 if is_placeholder "$ADMIN_PASSWORD"; then
   fail "ADMIN_PASSWORD is a placeholder or known weak default"

@@ -1,0 +1,65 @@
+name: CD — Production Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'gps-tracker-pro/**'
+      - '.github/workflows/cd.yml'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: gps-tracker-pro
+
+jobs:
+  deploy:
+    name: Deploy to Hetzner
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy over SSH
+        id: deploy
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          GIT_REF: ${{ github.ref_name }}
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: deployer
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          command_timeout: 30m
+          envs: DEPLOY_PATH,GIT_REF
+          script: |
+            set -euo pipefail
+            APP_DIR="${DEPLOY_PATH:-/opt/gps-tracker-pro}"
+            cd "${APP_DIR}/gps-tracker-pro"
+            git fetch origin
+            git checkout "${GIT_REF}"
+            git pull origin "${GIT_REF}"
+            chmod +x scripts/deploy-production.sh scripts/backup.sh scripts/monitor.sh
+            ./scripts/deploy-production.sh deploy
+            ./scripts/deploy-production.sh verify
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
+        run: |
+          MSG="CD deploy failed for ${GITHUB_REPOSITORY}@${GITHUB_SHA} — see ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [ -n "${SLACK_WEBHOOK:-}" ]; then
+            curl -sf -X POST "$SLACK_WEBHOOK" \
+              -H 'Content-Type: application/json' \
+              -d "{\"text\":\"🚨 ${MSG}\"}" || true
+          fi
+          if [ -n "${SENDGRID_API_KEY:-}" ] && [ -n "${ALERT_EMAIL_TO:-}" ]; then
+            curl -sf -X POST 'https://api.sendgrid.com/v3/mail/send' \
+              -H "Authorization: Bearer ${SENDGRID_API_KEY}" \
+              -H 'Content-Type: application/json' \
+              -d "{\"personalizations\":[{\"to\":[{\"email\":\"${ALERT_EMAIL_TO}\"}]}],\"from\":{\"email\":\"${ALERT_EMAIL_FROM:-alerts@gps-tracker-pro.ma}\"},\"subject\":\"CD deploy failed\",\"content\":[{\"type\":\"text/plain\",\"value\":\"${MSG}\"}]}" || true
+          fi
