@@ -1,18 +1,39 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Truck, Activity, AlertTriangle, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Map as MapIcon } from 'lucide-react';
 import { formatNumber } from '../utils/formatters';
 import { userApi } from '../services/traccarApi';
 import StatCard from '../components/dashboard/StatCard';
 import VehicleList from '../components/dashboard/VehicleList';
 import LiveIndicator from '../components/dashboard/LiveIndicator';
 import MapView from '../components/map/MapView';
+import Button from '../components/ui/Button';
+import Skeleton from '../components/ui/Skeleton';
 import { useVehicles } from '../hooks/useVehicles';
 import { useGeofences } from '../hooks/useGeofences';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
+import { getLatestFleetTimestamp } from './map/utils';
+import { buildDashboardStatCards } from './dashboard/stats';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
+}
+
+function StatCardSkeleton() {
+  return (
+    <div className="rounded-xl p-4 bg-capture-card/60 border border-slate-600/20 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <Skeleton className="w-10 h-10 rounded-xl" />
+        <Skeleton className="h-3 w-16" />
+      </div>
+      <div className="space-y-2">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-8 w-14" />
+        <Skeleton className="h-2 w-20" />
+      </div>
+    </div>
+  );
 }
 
 export default function Dashboard() {
@@ -32,89 +53,83 @@ export default function Dashboard() {
     isConnected,
     setFilter,
     selectVehicle,
+    refreshFleet,
   } = useVehicles();
 
   const {
     geofences,
     loading: geofencesLoading,
     error: geofencesError,
+    refreshGeofences,
   } = useGeofences();
 
   const [userCount, setUserCount] = useState(null);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [vehicleFlyTrigger, setVehicleFlyTrigger] = useState(0);
+
+  const adminUser = isAdmin();
 
   useEffect(() => {
-    if (!isAdmin()) return undefined;
+    if (!adminUser) {
+      setUserCount(null);
+      setUsersLoading(false);
+      return undefined;
+    }
+
     let cancelled = false;
+    setUsersLoading(true);
 
     userApi.list()
       .then((users) => {
-        if (!cancelled) setUserCount(Array.isArray(users) ? users.length : null);
+        if (!cancelled) {
+          setUserCount(Array.isArray(users) ? users.length : null);
+        }
       })
       .catch(() => {
         if (!cancelled) setUserCount(null);
+      })
+      .finally(() => {
+        if (!cancelled) setUsersLoading(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [isAdmin]);
+  }, [adminUser]);
 
-  const lastFleetUpdate = useMemo(
-    () => vehicles.reduce((latest, v) => {
-      const t = new Date(v.lastUpdate).getTime();
-      return t > latest ? t : latest;
-    }, 0),
-    [vehicles],
+  const lastFleetUpdate = useMemo(() => getLatestFleetTimestamp(vehicles), [vehicles]);
+  const activeNow = stats.moving + stats.idle + stats.online;
+  const notAvailable = t('common.notAvailable');
+
+  const statCards = useMemo(
+    () => buildDashboardStatCards({
+      t,
+      formatNumber,
+      stats,
+      activeNow,
+      isConnected,
+      isAdmin: adminUser,
+      userCount,
+      usersLoading,
+      geofencesCount: geofences.length,
+      notAvailable,
+      loading: vehiclesLoading,
+    }),
+    [
+      t,
+      stats,
+      activeNow,
+      isConnected,
+      adminUser,
+      userCount,
+      usersLoading,
+      geofences.length,
+      notAvailable,
+      vehiclesLoading,
+    ],
   );
 
-  const activeNow = stats.moving + stats.idle + stats.online;
-
-  const statCards = [
-    {
-      icon: Truck,
-      title: t('dashboard.totalVehicles'),
-      value: formatNumber(stats.total, { maximumFractionDigits: 0 }),
-      trend: {
-        direction: 'up',
-        numeric: formatNumber(stats.moving, { maximumFractionDigits: 0 }),
-        suffix: t('dashboard.moving'),
-      },
-      trendLabel: t('dashboard.onRoad'),
-      color: 'cyan',
-    },
-    {
-      icon: Activity,
-      title: t('dashboard.activeNow'),
-      value: formatNumber(activeNow, { maximumFractionDigits: 0 }),
-      trend: { direction: 'neutral', text: isConnected ? t('dashboard.live') : t('dashboard.disconnected') },
-      trendLabel: t('dashboard.wsStatus'),
-      color: 'green',
-    },
-    {
-      icon: AlertTriangle,
-      title: t('dashboard.alerts'),
-      value: formatNumber(stats.activeAlerts, { maximumFractionDigits: 0 }),
-      trend: {
-        direction: stats.alert > 0 ? 'down' : 'neutral',
-        numeric: formatNumber(stats.alert, { maximumFractionDigits: 0 }),
-      },
-      trendLabel: t('dashboard.alertVehicles'),
-      color: 'red',
-    },
-    {
-      icon: Users,
-      title: t('dashboard.users'),
-      value: userCount != null
-        ? formatNumber(userCount, { maximumFractionDigits: 0 })
-        : '—',
-      trend: { direction: 'neutral', text: '—' },
-      trendLabel: t('dashboard.traccarAccounts'),
-      color: 'violet',
-    },
-  ];
-
   const mapLoading = vehiclesLoading || geofencesLoading;
-  const mapError = vehiclesError || geofencesError;
 
   return (
     <div dir={dir} className="space-y-6 animate-fade-in">
@@ -131,16 +146,35 @@ export default function Dashboard() {
         />
       </div>
 
-      {mapError && (
-        <div className="px-4 py-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-sm text-rose-300">
-          {mapError}
+      {(vehiclesError || geofencesError) && (
+        <div className="space-y-2">
+          {vehiclesError && (
+            <div className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-sm text-rose-300">
+              <span>{vehiclesError}</span>
+              <Button variant="secondary" size="sm" onClick={refreshFleet}>
+                {t('common.retry')}
+              </Button>
+            </div>
+          )}
+          {geofencesError && (
+            <div className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-sm text-rose-300">
+              <span>{geofencesError}</span>
+              <Button variant="secondary" size="sm" onClick={refreshGeofences}>
+                {t('common.retry')}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        {statCards.map((card) => (
-          <StatCard key={card.title} {...card} />
-        ))}
+        {vehiclesLoading ? (
+          Array.from({ length: 4 }, (_, index) => <StatCardSkeleton key={index} />)
+        ) : (
+          statCards.map((card) => (
+            <StatCard key={card.id} {...card} />
+          ))
+        )}
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6 min-h-[520px]">
@@ -171,19 +205,29 @@ export default function Dashboard() {
         </div>
 
         <div className="lg:col-span-2 flex flex-col min-h-[480px]">
-          <div className="flex items-center justify-between mb-3 shrink-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3 shrink-0">
             <h2 className="text-sm font-semibold text-slate-200">
               {t('dashboard.liveMap')} — {t('map.morocco')}
             </h2>
-            {selectedVehicle && (
-              <button
-                type="button"
-                onClick={() => selectVehicle(selectedVehicle.id)}
-                className="text-xs text-capture-glow hover:text-capture-primary transition-colors"
+            <div className="flex items-center gap-3">
+              {selectedVehicle && (
+                <button
+                  type="button"
+                  onClick={() => setVehicleFlyTrigger((n) => n + 1)}
+                  className="text-xs text-capture-glow hover:text-capture-primary transition-colors"
+                  aria-label={`${t('dashboard.centerOn')} ${selectedVehicle.name}`}
+                >
+                  {t('dashboard.centerOn')}: {selectedVehicle.name}
+                </button>
+              )}
+              <Link
+                to="/map"
+                className="inline-flex items-center gap-1.5 text-xs text-capture-metallic hover:text-capture-glow transition-colors"
               >
-                {t('dashboard.centerOn')}: {selectedVehicle.name}
-              </button>
-            )}
+                <MapIcon className="w-3.5 h-3.5" />
+                {t('dashboard.openFullMap')}
+              </Link>
+            </div>
           </div>
           <div className="flex-1 min-h-[420px] relative">
             {mapLoading && (
@@ -199,6 +243,7 @@ export default function Dashboard() {
               geofences={geofences}
               showVehicleCard={false}
               showRoute={false}
+              vehicleFlyTrigger={vehicleFlyTrigger}
             />
           </div>
         </div>

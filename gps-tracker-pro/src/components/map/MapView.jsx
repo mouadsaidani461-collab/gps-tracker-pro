@@ -37,6 +37,7 @@ export default function MapView({
   showVehicleCard = true,
   className = '',
   defaultLayer = 'dark',
+  vehicleFlyTrigger = 0,
 }) {
   const { t } = useLocale();
   const [layer, setLayer] = useState(defaultLayer);
@@ -128,7 +129,7 @@ export default function MapView({
             geofence={{
               center: [selectedVehicle.location.lat, selectedVehicle.location.lng],
             }}
-            trigger={selectedVehicle.id}
+            trigger={`${selectedVehicle.id}:${vehicleFlyTrigger}`}
             zoom={MAP.selectedZoom}
           />
         )}
