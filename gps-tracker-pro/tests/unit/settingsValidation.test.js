@@ -21,6 +21,24 @@ describe('settings validation', () => {
     expect(errors.email).toBeTruthy();
   });
 
+  it('accepts valid profile fields', () => {
+    const errors = validateProfile({
+      name: 'Admin User',
+      email: 'admin@example.com',
+      phone: '+212612345678',
+    }, t);
+    expect(errors).toEqual({});
+  });
+
+  it('rejects invalid phone format', () => {
+    const errors = validateProfile({
+      name: 'Admin User',
+      email: 'admin@example.com',
+      phone: '123',
+    }, t);
+    expect(errors.phone).toBe('settings.validation.phoneInvalid');
+  });
+
   it('rejects short new password on security tab', () => {
     const errors = validateSecurity({
       current: 'old-password-ok',

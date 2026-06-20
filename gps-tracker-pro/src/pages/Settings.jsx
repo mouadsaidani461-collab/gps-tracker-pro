@@ -23,6 +23,7 @@ import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import TotpEnrollmentPanel from '../components/settings/TotpEnrollmentPanel';
 import NotificationDeviceFilter from '../components/settings/NotificationDeviceFilter';
+import { getRoleLabel } from '../utils/authRoles';
 import { validateProfile, validateSecurity } from './settings/validation';
 
 function cn(...classes) {
@@ -459,12 +460,14 @@ export default function Settings() {
         <div className="flex-1 capture-card p-6 min-h-[480px] flex flex-col">
           {/* ── Profile ── */}
           {activeTab === 'profile' && (
-            <div className="space-y-6 flex-1">
+            <div className="space-y-6 flex-1" role="region" aria-labelledby="settings-profile-title">
               <div>
-                <h2 className="font-semibold text-slate-100 text-lg">{t('settings.profile.title')}</h2>
+                <h2 id="settings-profile-title" className="font-semibold text-slate-100 text-lg">
+                  {t('settings.profile.title')}
+                </h2>
                 {role && (
                   <span className="inline-block mt-2 px-2.5 py-0.5 text-[10px] font-medium rounded-full bg-capture-primary/15 text-capture-glow border border-capture-primary/25">
-                    {t(`roles.${role}`) ?? role}
+                    {getRoleLabel(role, language)}
                   </span>
                 )}
               </div>
@@ -486,7 +489,7 @@ export default function Settings() {
                   </button>
                 </div>
                 <div>
-                  <p className="font-medium text-slate-100">{profile.name || '—'}</p>
+                  <p className="font-medium text-slate-100">{profile.name || t('common.notAvailable')}</p>
                   <p className="text-sm text-slate-400" dir="ltr">{profile.email}</p>
                 </div>
               </div>

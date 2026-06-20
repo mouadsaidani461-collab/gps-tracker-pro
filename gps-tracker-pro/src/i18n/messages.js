@@ -148,6 +148,7 @@ export const messages = {
     navbar: {
       openMenu: 'فتح القائمة',
       searchPlaceholder: 'بحث عن مركبة، لوحة، سائق...',
+      profile: 'الملف الشخصي',
       settings: 'الإعدادات',
       logout: 'تسجيل الخروج',
     },
@@ -1003,6 +1004,7 @@ export const messages = {
     navbar: {
       openMenu: 'Ouvrir le menu',
       searchPlaceholder: 'Rechercher véhicule, plaque, chauffeur...',
+      profile: 'Profil',
       settings: 'Paramètres',
       logout: 'Déconnexion',
     },
@@ -1858,6 +1860,7 @@ export const messages = {
     navbar: {
       openMenu: 'Open menu',
       searchPlaceholder: 'Search vehicle, plate, driver...',
+      profile: 'Profile',
       settings: 'Settings',
       logout: 'Log out',
     },

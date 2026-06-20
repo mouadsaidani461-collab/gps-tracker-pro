@@ -129,4 +129,42 @@ describe('Settings page', () => {
       expect(pushNotificationMock).toHaveBeenCalled();
     });
   });
+
+  it('opens profile tab from deep link', () => {
+    renderPage(['/settings?tab=profile']);
+    expect(screen.getByRole('region', { name: 'الملف الشخصي' })).toBeTruthy();
+    expect(screen.getByLabelText('الاسم').value).toBe('Admin User');
+  });
+
+  it('opens security tab from deep link', () => {
+    renderPage(['/settings?tab=security']);
+    expect(screen.getByLabelText('كلمة المرور الحالية')).toBeTruthy();
+  });
+
+  it('validates empty profile name on save', async () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText('الاسم'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'حفظ التغييرات' }));
+
+    expect(await screen.findByText('الاسم مطلوب')).toBeTruthy();
+    expect(updateProfileMock).not.toHaveBeenCalled();
+  });
+
+  it('saves profile via Traccar API', async () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText('الاسم'), { target: { value: 'Updated Name' } });
+    fireEvent.change(screen.getByLabelText('الشركة'), { target: { value: 'Capture SARL' } });
+    fireEvent.click(screen.getByRole('button', { name: 'حفظ التغييرات' }));
+
+    await waitFor(() => {
+      expect(updateProfileMock).toHaveBeenCalledWith({
+        name: 'Updated Name',
+        email: 'admin@example.com',
+        phone: '+212612345678',
+      });
+      const stored = JSON.parse(localStorage.getItem('capture_settings') || '{}');
+      expect(stored.profile?.company).toBe('Capture SARL');
+      expect(pushNotificationMock).toHaveBeenCalled();
+    });
+  });
 });

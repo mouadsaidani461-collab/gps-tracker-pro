@@ -4,7 +4,6 @@ import {
   Search,
   Menu,
   User,
-  Settings,
   LogOut,
   ChevronDown,
 } from 'lucide-react';
@@ -130,11 +129,11 @@ export default function Navbar({ onMenuClick, showMenu = false, searchQuery = ''
 
                 <button
                   type="button"
-                  onClick={() => { setProfileOpen(false); navigate('/settings'); }}
+                  onClick={() => { setProfileOpen(false); navigate('/settings?tab=profile'); }}
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-capture-surface/60 hover:text-capture-glow transition-colors"
                 >
-                  <Settings className="w-4 h-4 text-capture-metallic" />
-                  {t('navbar.settings')}
+                  <User className="w-4 h-4 text-capture-metallic" />
+                  {t('navbar.profile')}
                 </button>
 
                 <button
