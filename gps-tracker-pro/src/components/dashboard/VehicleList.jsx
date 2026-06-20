@@ -81,8 +81,12 @@ export default function VehicleList({
       <div className="flex-1 overflow-y-auto space-y-3 min-h-0 pe-1">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-sm text-slate-500">{t('vehicles.noResults')}</p>
-            <p className="text-xs text-slate-600 mt-1">{t('vehicles.searchEmpty')}</p>
+            <p className="text-sm text-slate-500">
+              {vehicles.length === 0 ? t('vehicles.noResults') : t('vehicles.noMatch')}
+            </p>
+            {vehicles.length > 0 && (
+              <p className="text-xs text-slate-600 mt-1">{t('vehicles.searchEmpty')}</p>
+            )}
           </div>
         ) : (
           filtered.map((vehicle) => (

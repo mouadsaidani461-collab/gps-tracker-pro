@@ -448,6 +448,7 @@ export const messages = {
       openSidebar: 'فتح القائمة',
       hideSidebar: 'إخفاء القائمة',
       showSidebar: 'إظهار القائمة',
+      drawModeConfirm: 'أنت في وضع الرسم. المتابعة بدون إنهاء الرسم؟',
     },
     geofence: {
       loadFailed: 'تعذّر تحميل المناطق الجغرافية',
@@ -1290,6 +1291,7 @@ export const messages = {
       openSidebar: 'Ouvrir le panneau',
       hideSidebar: 'Masquer le panneau',
       showSidebar: 'Afficher le panneau',
+      drawModeConfirm: 'Vous êtes en mode dessin. Continuer sans terminer le tracé ?',
     },
     geofence: {
       loadFailed: 'Impossible de charger les zones géographiques',
@@ -2132,6 +2134,7 @@ export const messages = {
       openSidebar: 'Open panel',
       hideSidebar: 'Hide panel',
       showSidebar: 'Show panel',
+      drawModeConfirm: 'You are in draw mode. Continue without finishing the shape?',
     },
     geofence: {
       loadFailed: 'Failed to load geofences',
