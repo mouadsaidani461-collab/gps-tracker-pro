@@ -4,12 +4,16 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Reports from '../../src/pages/Reports';
 import { renderWithLocale } from '../helpers/renderWithLocale';
+import { useVehicles } from '../../src/hooks/useVehicles';
+
+const refreshFleetMock = vi.fn();
 
 vi.mock('../../src/hooks/useVehicles', () => ({
   useVehicles: vi.fn(() => ({
     vehicles: [{ id: '1', deviceId: 1, plate: 'TN-1234', name: 'Car', driver: 'Driver' }],
-    reportFleet: [{ id: '1', deviceId: 1, plate: 'TN-1234', name: 'Car', driver: 'Driver' }],
-    allVehicles: [],
+    loading: false,
+    error: null,
+    refreshFleet: refreshFleetMock,
   })),
 }));
 
@@ -26,6 +30,12 @@ vi.mock('../../src/hooks/useReports', () => ({
 
 describe('Reports page', () => {
   beforeEach(() => {
+    useVehicles.mockReturnValue({
+      vehicles: [{ id: '1', deviceId: 1, plate: 'TN-1234', name: 'Car', driver: 'Driver' }],
+      loading: false,
+      error: null,
+      refreshFleet: refreshFleetMock,
+    });
     useReportsMock.mockReturnValue({
       rows: [],
       loading: false,
@@ -36,6 +46,7 @@ describe('Reports page', () => {
 
   afterEach(() => {
     cleanup();
+    vi.clearAllMocks();
   });
 
   it('renders without crashing', () => {
@@ -219,5 +230,77 @@ describe('Reports page', () => {
     );
 
     expect(screen.getByText('customStatus')).toBeTruthy();
+  });
+
+  it('marks active report type with aria-current', () => {
+    render(
+      renderWithLocale(
+        <MemoryRouter>
+          <Reports />
+        </MemoryRouter>,
+      ),
+    );
+
+    expect(screen.getByRole('button', { name: /الرحلات/ }).getAttribute('aria-current')).toBe('page');
+  });
+
+  it('shows fleet error with retry action', () => {
+    const retry = vi.fn();
+    useVehicles.mockReturnValue({
+      vehicles: [],
+      loading: false,
+      error: 'Fleet failed',
+      refreshFleet: retry,
+    });
+
+    render(
+      renderWithLocale(
+        <MemoryRouter>
+          <Reports />
+        </MemoryRouter>,
+      ),
+    );
+
+    expect(screen.getByText('Fleet failed')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'إعادة المحاولة' }));
+    expect(retry).toHaveBeenCalled();
+  });
+
+  it('shows empty fleet message when no vehicles are available', () => {
+    useVehicles.mockReturnValue({
+      vehicles: [],
+      loading: false,
+      error: null,
+      refreshFleet: vi.fn(),
+    });
+
+    render(
+      renderWithLocale(
+        <MemoryRouter>
+          <Reports />
+        </MemoryRouter>,
+      ),
+    );
+
+    expect(screen.getByText(/لا توجد أجهزة GPS/)).toBeTruthy();
+  });
+
+  it('disables report fetch for invalid date range', () => {
+    render(
+      renderWithLocale(
+        <MemoryRouter>
+          <Reports />
+        </MemoryRouter>,
+      ),
+    );
+
+    fireEvent.click(screen.getByText('مخصص'));
+    const fromInput = document.querySelector('input[type="date"]');
+    fireEvent.change(fromInput, { target: { value: '2026-06-10' } });
+    fireEvent.change(document.querySelectorAll('input[type="date"]')[1], { target: { value: '2026-06-01' } });
+
+    expect(screen.getByText('تاريخ البداية يجب أن يكون قبل تاريخ النهاية')).toBeTruthy();
+    const lastCall = useReportsMock.mock.calls[useReportsMock.mock.calls.length - 1][0];
+    expect(lastCall.enabled).toBe(false);
   });
 });

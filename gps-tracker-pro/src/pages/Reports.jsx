@@ -35,16 +35,13 @@ import {
   getVisiblePageNumbers,
   hasChartValues,
 } from './reports/reportCharts';
+import { formatDateStr, getPresetRange, isValidDateRange } from './reports/utils';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
 // Report rows loaded from Traccar API via useReports
-
-function formatDateStr(d) {
-  return d.toISOString().split('T')[0];
-}
 
 /** ISO date key (YYYY-MM-DD) → localized display with Western digits */
 function formatReportDateKey(dateKey, formatDateFn, options = {}) {
@@ -62,24 +59,6 @@ const DATE_INPUT_CLASS = cn(
   'px-3 py-2 rounded-lg text-sm bg-capture-bg/60 border border-slate-600/30 text-slate-200 focus:outline-none focus:shadow-glow-sm',
   NUMERIC_DISPLAY_CLASS,
 );
-
-function getPresetRange(presetId) {
-  const today = new Date();
-  const end = formatDateStr(today);
-
-  if (presetId === 'today') return { from: end, to: end };
-  if (presetId === 'week') {
-    const from = new Date(today);
-    from.setDate(from.getDate() - 6);
-    return { from: formatDateStr(from), to: end };
-  }
-  if (presetId === 'month') {
-    const from = new Date(today);
-    from.setDate(from.getDate() - 29);
-    return { from: formatDateStr(from), to: end };
-  }
-  return null;
-}
 
 function CustomTooltip({ active, payload, label, formatValue }) {
   const { formatDate } = useFormatters();
@@ -141,6 +120,8 @@ function VehicleMultiSelect({ vehicles = [], selected, onChange }) {
       <label className="block text-xs font-medium text-slate-400 mb-1.5">{t('reports.vehicles')}</label>
       <button
         type="button"
+        aria-expanded={open}
+        disabled={vehicles.length === 0}
         onClick={() => setOpen((p) => !p)}
         className={cn(
           'flex items-center justify-between gap-2 min-w-[180px] px-3 py-2 rounded-lg text-sm',
@@ -172,7 +153,10 @@ function VehicleMultiSelect({ vehicles = [], selected, onChange }) {
             </button>
           </div>
           <div className="max-h-48 overflow-y-auto p-1">
-            {vehicles.map((v) => {
+            {vehicles.length === 0 ? (
+              <p className="px-3 py-4 text-xs text-slate-500 text-center">{t('reports.noVehicles')}</p>
+            ) : (
+              vehicles.map((v) => {
               const checked = selected.includes(v.plate);
               return (
                 <button
@@ -195,7 +179,8 @@ function VehicleMultiSelect({ vehicles = [], selected, onChange }) {
                   <span className="truncate">{v.plate} — {v.name}</span>
                 </button>
               );
-            })}
+            })
+            )}
           </div>
         </div>
       )}
@@ -206,7 +191,7 @@ function VehicleMultiSelect({ vehicles = [], selected, onChange }) {
 export default function Reports() {
   const { dir, t, language } = useLocale();
   const { formatDate, formatDistance, formatDuration } = useFormatters();
-  const { vehicles } = useVehicles();
+  const { vehicles, loading: fleetLoading, error: fleetError, refreshFleet } = useVehicles();
   const weekRange = getPresetRange('week');
   const [selectedType, setSelectedType] = useState('trips');
   const [datePreset, setDatePreset] = useState('week');
@@ -226,12 +211,17 @@ export default function Reports() {
       .map((v) => v.deviceId ?? Number(v.id));
   }, [vehicles, selectedVehiclePlates]);
 
+  const dateRangeValid = isValidDateRange(dateFrom, dateTo);
+  const fleetReady = !fleetLoading && vehicles.length > 0;
+  const reportsEnabled = fleetReady && dateRangeValid;
+
   const { rows: reportRows, loading, error, refetch } = useReports({
     reportType: selectedType,
     dateFrom,
     dateTo,
     deviceIds: selectedDeviceIds,
     vehicles,
+    enabled: reportsEnabled,
   });
 
   const applyPreset = useCallback((presetId) => {
@@ -390,6 +380,31 @@ export default function Reports() {
         </div>
       </div>
 
+      {fleetError && (
+        <div className="px-4 py-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-sm text-rose-300 flex flex-wrap items-center gap-3">
+          <span>{fleetError}</span>
+          <Button variant="secondary" size="sm" onClick={refreshFleet}>{t('common.retry')}</Button>
+        </div>
+      )}
+
+      {fleetLoading && (
+        <div className="px-4 py-3 rounded-lg bg-capture-primary/10 border border-capture-primary/20 text-sm text-capture-glow">
+          {t('reports.loadingFleet')}
+        </div>
+      )}
+
+      {!fleetLoading && vehicles.length === 0 && !fleetError && (
+        <div className="capture-card px-4 py-6 text-center text-sm text-slate-400">
+          {t('reports.noDevices')}
+        </div>
+      )}
+
+      {!dateRangeValid && (
+        <div className="px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm text-amber-200">
+          {t('reports.invalidDateRange')}
+        </div>
+      )}
+
       {error && (
         <div className="px-4 py-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-sm text-rose-300 flex items-center justify-between gap-3">
           <span>{error}</span>
@@ -409,6 +424,7 @@ export default function Reports() {
           <button
             key={id}
             type="button"
+            aria-current={selectedType === id ? 'page' : undefined}
             onClick={() => { setSelectedType(id); setPage(1); }}
             className={cn(
               'capture-card p-4 text-start transition-all duration-300',

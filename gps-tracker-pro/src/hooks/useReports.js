@@ -49,7 +49,7 @@ export function useReports({
 
       setRows(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err?.message || t('reports.loadingReport'));
+      setError(err?.message || t('reports.loadFailed'));
       setRows([]);
     } finally {
       setLoading(false);
