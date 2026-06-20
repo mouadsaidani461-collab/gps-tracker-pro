@@ -73,25 +73,26 @@ export default function Navbar({
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 h-16',
+        'sticky top-0 z-40',
+        'pt-[env(safe-area-inset-top,0px)]',
         'bg-capture-surface/70 backdrop-blur-xl',
         'border-b border-slate-600/20',
         'shadow-[0_4px_24px_rgba(0,0,0,0.3)]',
       )}
     >
-      <div className="h-full px-4 lg:px-6 grid grid-cols-[1fr_minmax(0,28rem)_1fr] items-center gap-3">
+      <div className="h-14 sm:h-16 px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-2 sm:gap-3">
 
-        {/* ── Visual RIGHT: actions (start in RTL) ── */}
-        <div className="flex items-center gap-1.5 justify-self-start">
+        {/* Start: menu + brand (mobile) */}
+        <div className="flex items-center gap-2 min-w-0 flex-1 lg:flex-none">
           {showMenu && (
             <button
               type="button"
               onClick={onMenuClick}
               className={cn(
-                'lg:hidden p-2.5 rounded-lg',
+                'lg:hidden p-2.5 rounded-xl shrink-0',
                 'text-capture-metallic hover:text-capture-glow',
                 'hover:bg-capture-card/60 hover:shadow-glow-sm',
-                'transition-all duration-200',
+                'transition-all duration-200 touch-manipulation',
               )}
               aria-label={t('navbar.openMenu')}
             >
@@ -99,10 +100,51 @@ export default function Navbar({
             </button>
           )}
 
-          {/* Notifications — WebSocket simulation via NotificationContext */}
+          <div className="flex items-center gap-2 min-w-0 lg:hidden">
+            <img
+              src="/icon-source.svg"
+              alt=""
+              className="h-8 w-8 shrink-0"
+              width={32}
+              height={32}
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-100 truncate leading-tight">
+                Capture GPS
+              </p>
+              <p className="text-[10px] text-capture-metallic truncate leading-tight">
+                {t('dashboard.subtitleShort')}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Center: search (tablet+) */}
+        <div className="hidden sm:flex flex-1 max-w-md mx-auto justify-center">
+          <div className="relative group w-full">
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-capture-glow transition-colors pointer-events-none" />
+            <input
+              type="search"
+              value={localSearch}
+              onChange={handleSearch}
+              onKeyDown={handleSearchKeyDown}
+              placeholder={t('navbar.searchPlaceholder')}
+              className={cn(
+                'w-full ps-10 pe-4 py-2 rounded-lg text-sm',
+                'bg-capture-bg/60 border border-slate-600/30',
+                'text-slate-200 placeholder:text-slate-500',
+                'transition-all duration-200',
+                'focus:outline-none focus:border-capture-primary/50 focus:shadow-glow-sm',
+                'hover:border-slate-500/40',
+              )}
+            />
+          </div>
+        </div>
+
+        {/* End: actions */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <NotificationBell onOpenChange={(isOpen) => { if (isOpen) setProfileOpen(false); }} />
 
-          {/* Profile */}
           <div className="relative" ref={profileRef}>
             <button
               type="button"
@@ -168,39 +210,6 @@ export default function Navbar({
               </div>
             )}
           </div>
-        </div>
-
-        {/* ── CENTER: search ── */}
-        <div className="justify-self-center w-full hidden sm:block">
-          <div className="relative group">
-            <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-capture-glow transition-colors pointer-events-none" />
-            <input
-              type="search"
-              value={localSearch}
-              onChange={handleSearch}
-              onKeyDown={handleSearchKeyDown}
-              placeholder={t('navbar.searchPlaceholder')}
-              className={cn(
-                'w-full ps-10 pe-4 py-2 rounded-lg text-sm',
-                'bg-capture-bg/60 border border-slate-600/30',
-                'text-slate-200 placeholder:text-slate-500',
-                'transition-all duration-200',
-                'focus:outline-none focus:border-capture-primary/50 focus:shadow-glow-sm',
-                'hover:border-slate-500/40',
-              )}
-            />
-          </div>
-        </div>
-
-        {/* ── Visual LEFT: shield mark only (end in RTL) ── */}
-        <div className="flex items-center justify-self-end shrink-0">
-          <img
-            src="/icon-source.svg"
-            alt="Capture Tracking GPS"
-            className="h-8 w-8"
-            width={32}
-            height={32}
-          />
         </div>
       </div>
     </header>

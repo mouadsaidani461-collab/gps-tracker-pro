@@ -36,11 +36,11 @@ export default function StatCard({
   return (
     <div
       className={cn(
-        'group relative rounded-xl p-4',
+        'group relative rounded-xl p-3 sm:p-4',
         'bg-capture-card/60 backdrop-blur-md',
         'border border-slate-600/20',
         'transition-all duration-300 ease-out',
-        'hover:-translate-y-1 hover:border-capture-primary/30 hover:shadow-glow-sm',
+        'lg:hover:-translate-y-1 lg:hover:border-capture-primary/30 lg:hover:shadow-glow-sm',
         'before:absolute before:inset-x-0 before:top-0 before:h-px',
         'before:bg-gradient-to-r before:from-transparent before:via-slate-400/20 before:to-transparent',
         'before:opacity-0 group-hover:opacity-100 before:transition-opacity',
@@ -50,12 +50,12 @@ export default function StatCard({
       <div className="flex items-start justify-between gap-3">
         <div
           className={cn(
-            'p-2.5 rounded-xl bg-gradient-to-br shrink-0',
+            'p-2 sm:p-2.5 rounded-xl bg-gradient-to-br shrink-0',
             'transition-shadow duration-300 group-hover:shadow-glow-sm',
             iconColors[color] ?? iconColors.cyan,
           )}
         >
-          <Icon className="w-5 h-5" />
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
 
         {trend && (
@@ -78,9 +78,9 @@ export default function StatCard({
         )}
       </div>
 
-      <div className="mt-4">
-        <p className="text-xs text-capture-metallic mb-1">{title}</p>
-        <p className={cn('text-2xl font-bold text-slate-100 tracking-tight', NUMERIC_DISPLAY_CLASS)} dir="ltr">{value}</p>
+      <div className="mt-2 sm:mt-4">
+        <p className="text-[10px] sm:text-xs text-capture-metallic mb-0.5 sm:mb-1 line-clamp-2">{title}</p>
+        <p className={cn('text-xl sm:text-2xl font-bold text-slate-100 tracking-tight', NUMERIC_DISPLAY_CLASS)} dir="ltr">{value}</p>
         {trendLabel && (
           <p className="text-[10px] text-slate-500 mt-1">{trendLabel}</p>
         )}

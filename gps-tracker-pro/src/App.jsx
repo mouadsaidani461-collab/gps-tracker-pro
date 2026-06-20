@@ -10,6 +10,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import { DeviceProvider } from './context/DeviceContext';
 import Navbar from './components/layout/Navbar';
 import Sidebar from './components/layout/Sidebar';
+import MobileBottomNav from './components/layout/MobileBottomNav';
 import Login from './pages/Login';
 import TotpVerify from './pages/TotpVerify';
 import Dashboard from './pages/Dashboard';
@@ -124,9 +125,10 @@ function AppLayout() {
           onSearchChange={handleFleetSearchChange}
           onSearchSubmit={handleFleetSearchSubmit}
         />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 capture-grid-bg">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-6 capture-grid-bg">
           <Outlet />
         </main>
+        <MobileBottomNav />
       </div>
     </div>
   );

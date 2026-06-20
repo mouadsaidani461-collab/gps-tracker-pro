@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Map as MapIcon } from 'lucide-react';
+import { Map as MapIcon, List } from 'lucide-react';
 import { formatNumber } from '../utils/formatters';
 import { userApi } from '../services/traccarApi';
 import StatCard from '../components/dashboard/StatCard';
@@ -66,6 +66,7 @@ export default function Dashboard() {
   const [userCount, setUserCount] = useState(null);
   const [usersLoading, setUsersLoading] = useState(false);
   const [vehicleFlyTrigger, setVehicleFlyTrigger] = useState(0);
+  const [mobilePanel, setMobilePanel] = useState('list');
 
   const adminUser = isAdmin();
 
@@ -132,11 +133,11 @@ export default function Dashboard() {
   const mapLoading = vehiclesLoading || geofencesLoading;
 
   return (
-    <div dir={dir} className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div dir={dir} className="space-y-4 sm:space-y-6 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">{t('dashboard.title')}</h1>
-          <p className="text-sm text-capture-metallic mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-100">{t('dashboard.title')}</h1>
+          <p className="text-xs sm:text-sm text-capture-metallic mt-0.5 sm:mt-1 hidden sm:block">
             {t('dashboard.subtitle')}
           </p>
         </div>
@@ -167,7 +168,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">
         {vehiclesLoading ? (
           Array.from({ length: 4 }, (_, index) => <StatCardSkeleton key={index} />)
         ) : (
@@ -177,11 +178,36 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6 min-h-[520px]">
+      <div className="lg:hidden flex p-1 rounded-xl bg-capture-surface/60 border border-slate-600/20">
+        {[
+          { id: 'list', label: t('dashboard.mobileTabList'), icon: List },
+          { id: 'map', label: t('dashboard.mobileTabMap'), icon: MapIcon },
+        ].map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setMobilePanel(id)}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium transition-all touch-manipulation',
+              mobilePanel === id
+                ? 'bg-capture-primary/15 text-capture-glow shadow-glow-sm'
+                : 'text-capture-metallic',
+            )}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-4 lg:gap-6 lg:min-h-[520px]">
         <div
           className={cn(
-            'lg:col-span-1 flex flex-col min-h-[480px]',
-            'rounded-xl p-4',
+            'lg:col-span-1 flex flex-col',
+            'lg:min-h-[480px]',
+            mobilePanel === 'map' ? 'hidden lg:flex' : 'flex',
+            'max-lg:min-h-[min(420px,calc(100dvh-22rem))]',
+            'rounded-xl p-3 sm:p-4',
             'bg-capture-surface/40 backdrop-blur-sm',
             'border border-slate-600/20',
           )}
@@ -204,7 +230,13 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div className="lg:col-span-2 flex flex-col min-h-[480px]">
+        <div
+          className={cn(
+            'lg:col-span-2 flex flex-col lg:min-h-[480px]',
+            mobilePanel === 'list' ? 'hidden lg:flex' : 'flex',
+            'max-lg:min-h-[min(52dvh,480px)]',
+          )}
+        >
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3 shrink-0">
             <h2 className="text-sm font-semibold text-slate-200">
               {t('dashboard.liveMap')} — {t('map.morocco')}
@@ -229,7 +261,7 @@ export default function Dashboard() {
               </Link>
             </div>
           </div>
-          <div className="flex-1 min-h-[420px] relative">
+          <div className="flex-1 min-h-[280px] lg:min-h-[420px] relative">
             {mapLoading && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-capture-bg/60 backdrop-blur-sm rounded-xl">
                 <div className="w-8 h-8 border-2 border-capture-primary border-t-transparent rounded-full animate-spin" />
