@@ -152,4 +152,72 @@ describe('Reports page', () => {
     const lastCall = useReportsMock.mock.calls[useReportsMock.mock.calls.length - 1][0];
     expect(lastCall.reportType).toBe('stops');
   });
+
+  it('disables export buttons while loading', () => {
+    useReportsMock.mockReturnValue({
+      rows: [],
+      loading: true,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      renderWithLocale(
+        <MemoryRouter>
+          <Reports />
+        </MemoryRouter>,
+      ),
+    );
+
+    expect(screen.getByRole('button', { name: /PDF/i })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: /CSV/i })).toHaveProperty('disabled', true);
+  });
+
+  it('shows chart empty state for alerts without distance data', () => {
+    useReportsMock.mockReturnValue({
+      rows: [],
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      renderWithLocale(
+        <MemoryRouter>
+          <Reports />
+        </MemoryRouter>,
+      ),
+    );
+
+    fireEvent.click(screen.getByText('التنبيهات'));
+    expect(screen.getByText('لا توجد بيانات للرسم')).toBeTruthy();
+  });
+
+  it('renders unknown status badge text', () => {
+    useReportsMock.mockReturnValue({
+      rows: [{
+        id: 'x-1',
+        vehicle: 'TN-9999',
+        driver: 'Driver',
+        type: 'test',
+        date: '2026-06-01',
+        distance: 0,
+        duration: 0,
+        status: 'customStatus',
+      }],
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      renderWithLocale(
+        <MemoryRouter>
+          <Reports />
+        </MemoryRouter>,
+      ),
+    );
+
+    expect(screen.getByText('customStatus')).toBeTruthy();
+  });
 });

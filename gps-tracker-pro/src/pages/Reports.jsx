@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
-  Route, Gauge, Car, AlertTriangle, Download, Calendar, PauseCircle,
-  ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight,
+  Download, Calendar, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight,
   FileSpreadsheet, FileText, Check,
 } from 'lucide-react';
 import {
@@ -14,6 +13,7 @@ import { useLocale } from '../context/LocaleContext';
 import { useFormatters } from '../hooks/useFormatters';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
+import { APP_NAME } from '../utils/constants';
 import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
 import {
   exportFilename,
@@ -21,6 +21,20 @@ import {
   rowsToCsv,
   downloadBlob,
 } from '../utils/exportUtils';
+import {
+  CHART_COLORS,
+  DATE_PRESET_IDS,
+  MAX_PAGE_BUTTONS,
+  PAGE_SIZE,
+  REPORT_TYPES,
+  TABLE_COLUMN_KEYS,
+  resolveStatusBadge,
+} from './reports/constants';
+import {
+  getChartConfig,
+  getVisiblePageNumbers,
+  hasChartValues,
+} from './reports/reportCharts';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -28,39 +42,9 @@ function cn(...classes) {
 
 // Report rows loaded from Traccar API via useReports
 
-const REPORT_TYPE_META = [
-  { id: 'trips', icon: Route, color: 'from-capture-primary/30 to-capture-primary/5', iconColor: 'text-capture-glow' },
-  { id: 'stops', icon: PauseCircle, color: 'from-violet-500/30 to-violet-500/5', iconColor: 'text-violet-300' },
-  { id: 'speed', icon: Gauge, color: 'from-capture-warning/30 to-capture-warning/5', iconColor: 'text-capture-warning' },
-  { id: 'vehicles', icon: Car, color: 'from-capture-success/30 to-capture-success/5', iconColor: 'text-capture-success' },
-  { id: 'alerts', icon: AlertTriangle, color: 'from-capture-danger/30 to-capture-danger/5', iconColor: 'text-capture-danger' },
-];
-
-const DATE_PRESET_IDS = ['today', 'week', 'month', 'custom'];
-
-const STATUS_BADGE = {
-  completed: { variant: 'success', labelKey: 'reports.status.completed' },
-  warning: { variant: 'warning', labelKey: 'reports.status.warning' },
-  alert: { variant: 'danger', labelKey: 'reports.status.alert' },
-};
-
-const COLUMN_KEYS = ['vehicle', 'driver', 'type', 'date', 'distance', 'duration', 'status'];
-
-const CHART_COLORS = {
-  primary: '#06b6d4',
-  glow: '#67e8f9',
-  success: '#10b981',
-  warning: '#f59e0b',
-  danger: '#f43f5e',
-  grid: 'rgba(148,163,184,0.1)',
-  text: '#94a3b8',
-};
-
 function formatDateStr(d) {
   return d.toISOString().split('T')[0];
 }
-
-const PAGE_SIZE = 5;
 
 /** ISO date key (YYYY-MM-DD) → localized display with Western digits */
 function formatReportDateKey(dateKey, formatDateFn, options = {}) {
@@ -97,7 +81,7 @@ function getPresetRange(presetId) {
   return null;
 }
 
-function CustomTooltip({ active, payload, label }) {
+function CustomTooltip({ active, payload, label, formatValue }) {
   const { formatDate } = useFormatters();
   if (!active || !payload?.length) return null;
   const dateLabel = /^\d{4}-\d{2}-\d{2}$/.test(label)
@@ -112,7 +96,7 @@ function CustomTooltip({ active, payload, label }) {
         <p key={entry.name} style={{ color: entry.color }}>
           {entry.name}:{' '}
           <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">
-            {formatNumber(entry.value, { maximumFractionDigits: 1 })}
+            {formatValue ? formatValue(entry.value) : formatNumber(entry.value, { maximumFractionDigits: 1 })}
           </span>
         </p>
       ))}
@@ -287,25 +271,36 @@ export default function Reports() {
 
   const totalPages = Math.max(1, Math.ceil(sortedData.length / PAGE_SIZE));
   const paginatedData = sortedData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const visiblePages = useMemo(
+    () => getVisiblePageNumbers(page, totalPages, MAX_PAGE_BUTTONS),
+    [page, totalPages],
+  );
+  const exportDisabled = loading || sortedData.length === 0;
 
-  const chartTrendData = useMemo(() => {
-    const byDate = {};
-    filteredData.forEach((row) => {
-      if (!byDate[row.date]) byDate[row.date] = { date: row.date, distance: 0, count: 0 };
-      byDate[row.date].distance += row.distance;
-      byDate[row.date].count += 1;
-    });
-    return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
-  }, [filteredData]);
+  const chartConfig = useMemo(() => getChartConfig(selectedType), [selectedType]);
 
-  const chartBarData = useMemo(() => {
-    const byVehicle = {};
-    filteredData.forEach((row) => {
-      if (!byVehicle[row.vehicle]) byVehicle[row.vehicle] = { vehicle: row.vehicle, total: 0 };
-      byVehicle[row.vehicle].total += row.distance;
-    });
-    return Object.values(byVehicle).sort((a, b) => b.total - a.total);
-  }, [filteredData]);
+  const chartTrendData = useMemo(
+    () => (chartConfig ? chartConfig.buildTrend(filteredData) : []),
+    [chartConfig, filteredData],
+  );
+
+  const chartBarData = useMemo(
+    () => (chartConfig ? chartConfig.buildBar(filteredData) : []),
+    [chartConfig, filteredData],
+  );
+
+  const chartsHaveData = chartConfig && (
+    hasChartValues(chartTrendData, chartConfig.trendKey)
+    || hasChartValues(chartBarData, chartConfig.barKey)
+  );
+
+  const formatChartValue = useCallback((value, kind) => {
+    if (kind === 'duration') return formatDuration(value);
+    if (kind === 'integer') {
+      return formatNumber(value, { maximumFractionDigits: 0 });
+    }
+    return formatNumber(value, { maximumFractionDigits: 1 });
+  }, [formatDuration]);
 
   const handleSort = (key) => {
     if (sortKey === key) {
@@ -325,16 +320,16 @@ export default function Reports() {
   };
 
   const columns = useMemo(
-    () => COLUMN_KEYS.map((key) => ({ key, label: t(`reports.columns.${key}`) })),
+    () => TABLE_COLUMN_KEYS.map((key) => ({ key, label: t(`reports.columns.${key}`) })),
     [t],
   );
 
   const handleExport = async (format) => {
+    if (exportDisabled) return;
     const headers = columns.map((c) => c.label);
     const rows = sortedData.map((r) => {
-      const statusLabel = STATUS_BADGE[r.status]
-        ? t(STATUS_BADGE[r.status].labelKey)
-        : r.status;
+      const badge = resolveStatusBadge(r.status);
+      const statusLabel = badge.labelKey ? t(badge.labelKey) : badge.label;
       const formatted = formatReportRowForExport(r, statusLabel);
       return [formatted.vehicle, formatted.driver, formatted.type, formatted.date, formatted.distance, formatted.duration, formatted.status];
     });
@@ -356,7 +351,7 @@ export default function Reports() {
       } else if (format === 'pdf') {
         const { exportReportPdf } = await import('../utils/exportReportHeavy');
         await exportReportPdf({
-          title: `Capture GPS — ${selectedType} (${dateFrom} → ${dateTo})`,
+          title: `${APP_NAME} — ${t(`reports.types.${selectedType}`)} (${dateFrom} → ${dateTo})`,
           headers,
           rows,
           filename: exportFilename(`capture-${selectedType}`, dateFrom, dateTo, 'pdf'),
@@ -383,13 +378,13 @@ export default function Reports() {
               {exportMsg}
             </span>
           )}
-          <Button variant="secondary" size="sm" leftIcon={<FileText className="w-4 h-4" />} onClick={() => handleExport('pdf')}>
+          <Button variant="secondary" size="sm" disabled={exportDisabled} leftIcon={<FileText className="w-4 h-4" />} onClick={() => handleExport('pdf')}>
             PDF
           </Button>
-          <Button variant="secondary" size="sm" leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => handleExport('excel')}>
+          <Button variant="secondary" size="sm" disabled={exportDisabled} leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => handleExport('excel')}>
             Excel
           </Button>
-          <Button variant="primary" size="sm" leftIcon={<Download className="w-4 h-4" />} onClick={() => handleExport('csv')}>
+          <Button variant="primary" size="sm" disabled={exportDisabled} leftIcon={<Download className="w-4 h-4" />} onClick={() => handleExport('csv')}>
             CSV
           </Button>
         </div>
@@ -409,8 +404,8 @@ export default function Reports() {
       )}
 
       {/* Report type cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {REPORT_TYPE_META.map(({ id, icon: Icon, color, iconColor }) => (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        {REPORT_TYPES.map(({ id, icon: Icon, color, iconColor }) => (
           <button
             key={id}
             type="button"
@@ -517,64 +512,74 @@ export default function Reports() {
       </div>
 
       {/* Charts */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <div className="capture-card p-4">
-          <h3 className="text-sm font-semibold text-slate-200 mb-4">{t('reports.dailyTrend')}</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={chartTrendData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
-              <XAxis
-                dataKey="date"
-                tick={{ fill: CHART_COLORS.text, fontSize: 10 }}
-                tickFormatter={(d) => formatReportDateKey(d, formatDate, { month: 'short', day: 'numeric' })}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fill: CHART_COLORS.text, fontSize: 10 }}
-                tickFormatter={(v) => formatNumber(v, { maximumFractionDigits: 0 })}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 11, color: CHART_COLORS.text }} />
-              <Line
-                type="monotone"
-                dataKey="distance"
-                name={t('reports.distanceKm')}
-                stroke={CHART_COLORS.primary}
-                strokeWidth={2}
-                dot={{ fill: CHART_COLORS.glow, r: 4 }}
-                activeDot={{ r: 6, fill: CHART_COLORS.glow }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+      {chartConfig && (
+        <div className="grid lg:grid-cols-2 gap-4">
+          {!chartsHaveData ? (
+            <div className="capture-card p-8 lg:col-span-2 text-center text-sm text-slate-500">
+              {t('reports.noChartData')}
+            </div>
+          ) : (
+            <>
+              <div className="capture-card p-4">
+                <h3 className="text-sm font-semibold text-slate-200 mb-4">{t(chartConfig.trendTitleKey)}</h3>
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={chartTrendData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fill: CHART_COLORS.text, fontSize: 10 }}
+                      tickFormatter={(d) => formatReportDateKey(d, formatDate, { month: 'short', day: 'numeric' })}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fill: CHART_COLORS.text, fontSize: 10 }}
+                      tickFormatter={(v) => formatChartValue(v, chartConfig.formatTrend)}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip content={<CustomTooltip formatValue={(v) => formatChartValue(v, chartConfig.formatTrend)} />} />
+                    <Legend wrapperStyle={{ fontSize: 11, color: CHART_COLORS.text }} />
+                    <Line
+                      type="monotone"
+                      dataKey={chartConfig.trendKey}
+                      name={t(chartConfig.seriesLabelKey)}
+                      stroke={CHART_COLORS.primary}
+                      strokeWidth={2}
+                      dot={{ fill: CHART_COLORS.glow, r: 4 }}
+                      activeDot={{ r: 6, fill: CHART_COLORS.glow }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
 
-        <div className="capture-card p-4">
-          <h3 className="text-sm font-semibold text-slate-200 mb-4">{t('reports.distanceByVehicle')}</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartBarData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
-              <XAxis dataKey="vehicle" tick={{ fill: CHART_COLORS.text, fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis
-                tick={{ fill: CHART_COLORS.text, fontSize: 10 }}
-                tickFormatter={(v) => formatNumber(v, { maximumFractionDigits: 0 })}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar
-                dataKey="total"
-                name={t('reports.distanceKm')}
-                fill={CHART_COLORS.primary}
-                radius={[4, 4, 0, 0]}
-                maxBarSize={48}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+              <div className="capture-card p-4">
+                <h3 className="text-sm font-semibold text-slate-200 mb-4">{t(chartConfig.barTitleKey)}</h3>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={chartBarData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
+                    <XAxis dataKey="vehicle" tick={{ fill: CHART_COLORS.text, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis
+                      tick={{ fill: CHART_COLORS.text, fontSize: 10 }}
+                      tickFormatter={(v) => formatChartValue(v, chartConfig.formatBar)}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip content={<CustomTooltip formatValue={(v) => formatChartValue(v, chartConfig.formatBar)} />} />
+                    <Bar
+                      dataKey={chartConfig.barKey}
+                      name={t(chartConfig.seriesLabelKey)}
+                      fill={CHART_COLORS.primary}
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={48}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Data table */}
       <div className="capture-card overflow-hidden">
@@ -618,7 +623,8 @@ export default function Reports() {
                 </tr>
               ) : (
                 paginatedData.map((row) => {
-                  const badge = STATUS_BADGE[row.status] ?? { variant: 'info', label: row.status };
+                  const badge = resolveStatusBadge(row.status);
+                  const badgeLabel = badge.labelKey ? t(badge.labelKey) : badge.label;
                   return (
                     <tr
                       key={row.id}
@@ -637,7 +643,7 @@ export default function Reports() {
                         <span className={NUMERIC_DISPLAY_CLASS} dir="ltr">{formatDuration(row.duration)}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <Badge variant={badge.variant} size="sm">{t(badge.labelKey)}</Badge>
+                        <Badge variant={badge.variant} size="sm">{badgeLabel}</Badge>
                       </td>
                     </tr>
                   );
@@ -673,7 +679,7 @@ export default function Reports() {
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              {visiblePages.map((p) => (
                 <button
                   key={p}
                   type="button"
