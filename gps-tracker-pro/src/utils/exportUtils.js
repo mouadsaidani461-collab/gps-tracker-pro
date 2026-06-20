@@ -67,12 +67,21 @@ export function rowsToCsv(headers, rows) {
   return [headers, ...rows].map((row) => row.map(escape).join(',')).join('\n');
 }
 
-export function downloadBlob(content, mime, filename) {
-  const blob = new Blob(['\ufeff', content], { type: mime });
+/** Trigger a file download — append link to DOM and delay revoke (Safari/Chrome). */
+export function triggerFileDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
+  link.rel = 'noopener';
+  link.style.display = 'none';
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export function downloadBlob(content, mime, filename) {
+  const blob = new Blob(['\ufeff', content], { type: mime });
+  triggerFileDownload(blob, filename);
 }

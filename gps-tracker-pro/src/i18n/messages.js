@@ -574,6 +574,8 @@ export const messages = {
       exportExcel: 'تم تصدير Excel بنجاح',
       exportPdf: 'تم تصدير PDF بنجاح',
       exportFailed: 'فشل التصدير',
+      exportDisabledHint: 'لا توجد بيانات للتصدير — غيّر الفترة أو نوع التقرير',
+      exportInProgress: 'جاري التصدير…',
       types: {
         trips: 'الرحلات',
         stops: 'التوقفات',
@@ -1430,6 +1432,8 @@ export const messages = {
       exportExcel: 'Export Excel réussi',
       exportPdf: 'Export PDF réussi',
       exportFailed: 'Échec de l\'export',
+      exportDisabledHint: 'Aucune donnée à exporter — modifiez la période ou le type de rapport',
+      exportInProgress: 'Export en cours…',
       types: {
         trips: 'Trajets',
         stops: 'Arrêts',
@@ -2286,6 +2290,8 @@ export const messages = {
       exportExcel: 'Excel exported successfully',
       exportPdf: 'PDF exported successfully',
       exportFailed: 'Export failed',
+      exportDisabledHint: 'No data to export — change the date range or report type',
+      exportInProgress: 'Exporting…',
       types: {
         trips: 'Trips',
         stops: 'Stops',

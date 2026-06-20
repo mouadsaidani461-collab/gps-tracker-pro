@@ -202,6 +202,7 @@ export default function Reports() {
   const [sortDir, setSortDir] = useState('desc');
   const [page, setPage] = useState(1);
   const [exportMsg, setExportMsg] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   const selectedDeviceIds = useMemo(() => {
     const fleet = vehicles ?? [];
@@ -265,7 +266,7 @@ export default function Reports() {
     () => getVisiblePageNumbers(page, totalPages, MAX_PAGE_BUTTONS),
     [page, totalPages],
   );
-  const exportDisabled = loading || sortedData.length === 0;
+  const exportDisabled = loading || exporting || sortedData.length === 0;
 
   const chartConfig = useMemo(() => getChartConfig(selectedType), [selectedType]);
 
@@ -325,6 +326,8 @@ export default function Reports() {
     });
     const baseName = exportFilename(`capture-${selectedType}`, dateFrom, dateTo, format === 'excel' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv');
 
+    setExporting(true);
+    setExportMsg(t('reports.exportInProgress'));
     try {
       if (format === 'csv') {
         downloadBlob(rowsToCsv(headers, rows), 'text/csv;charset=utf-8;', baseName);
@@ -350,8 +353,10 @@ export default function Reports() {
       }
     } catch (err) {
       setExportMsg(err?.message ?? t('reports.exportFailed'));
+    } finally {
+      setExporting(false);
+      setTimeout(() => setExportMsg(null), 3000);
     }
-    setTimeout(() => setExportMsg(null), 3000);
   };
 
   return (
@@ -368,13 +373,13 @@ export default function Reports() {
               {exportMsg}
             </span>
           )}
-          <Button variant="secondary" size="sm" disabled={exportDisabled} leftIcon={<FileText className="w-4 h-4" />} onClick={() => handleExport('pdf')}>
+          <Button variant="secondary" size="sm" disabled={exportDisabled} title={exportDisabled && sortedData.length === 0 ? t('reports.exportDisabledHint') : undefined} loading={exporting} leftIcon={<FileText className="w-4 h-4" />} onClick={() => handleExport('pdf')}>
             PDF
           </Button>
-          <Button variant="secondary" size="sm" disabled={exportDisabled} leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => handleExport('excel')}>
+          <Button variant="secondary" size="sm" disabled={exportDisabled} title={exportDisabled && sortedData.length === 0 ? t('reports.exportDisabledHint') : undefined} loading={exporting} leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => handleExport('excel')}>
             Excel
           </Button>
-          <Button variant="primary" size="sm" disabled={exportDisabled} leftIcon={<Download className="w-4 h-4" />} onClick={() => handleExport('csv')}>
+          <Button variant="primary" size="sm" disabled={exportDisabled} title={exportDisabled && sortedData.length === 0 ? t('reports.exportDisabledHint') : undefined} loading={exporting} leftIcon={<Download className="w-4 h-4" />} onClick={() => handleExport('csv')}>
             CSV
           </Button>
         </div>

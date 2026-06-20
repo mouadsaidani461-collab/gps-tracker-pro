@@ -1,5 +1,6 @@
 /** PDF / Excel export — loaded only when user clicks export (keeps exceljs/jspdf out of Reports chunk). */
 
+import { triggerFileDownload } from './exportUtils';
 import { ensureArabicPdfFont, textNeedsArabicFont } from './pdfFontUtils';
 
 export async function exportReportPdf({ title, headers, rows, filename }) {
@@ -40,10 +41,5 @@ export async function exportReportExcel({ sheetName, headers, rows, filename }) 
   sheet.getRow(1).font = { bold: true };
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+  triggerFileDownload(blob, filename);
 }

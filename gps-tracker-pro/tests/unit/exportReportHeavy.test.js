@@ -27,9 +27,18 @@ describe('exportReportExcel', () => {
     }));
 
     const click = vi.fn();
+    const remove = vi.fn();
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-    vi.spyOn(document, 'createElement').mockReturnValue({ click, download: '' });
+    vi.spyOn(document, 'createElement').mockReturnValue({
+      click,
+      remove,
+      style: {},
+      download: '',
+      href: '',
+      rel: '',
+    });
+    vi.spyOn(document.body, 'appendChild').mockImplementation(() => {});
 
     const { exportReportExcel } = await import('../../src/utils/exportReportHeavy');
     await exportReportExcel({
