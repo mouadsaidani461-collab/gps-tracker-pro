@@ -18,7 +18,7 @@ import { translate, getStoredLanguage } from '../i18n';
 import { APP_NAME } from '../utils/constants';
 
 import { ROLES, ROLE_LABELS, hasPermission, resolveRoleFromTraccarUser } from '../utils/authRoles';
-import { parseTwoFactorEnabled } from '../utils/userAttributes';
+import { parseTwoFactorEnabled, parseAvatarFromUser } from '../utils/userAttributes';
 
 export { ROLES, ROLE_LABELS } from '../utils/authRoles';
 
@@ -36,7 +36,7 @@ function mapTraccarUser(user) {
     phone: user.phone || '',
     company: APP_NAME,
     role,
-    avatar: null,
+    avatar: parseAvatarFromUser(user),
     readonly: user.readonly,
     administrator: user.administrator,
     attributes: user.attributes ?? {},

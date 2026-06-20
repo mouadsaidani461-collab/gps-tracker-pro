@@ -24,6 +24,8 @@ import Button from '../components/ui/Button';
 import TotpEnrollmentPanel from '../components/settings/TotpEnrollmentPanel';
 import NotificationDeviceFilter from '../components/settings/NotificationDeviceFilter';
 import { getRoleLabel } from '../utils/authRoles';
+import { AVATAR_ACCEPT, processAvatarFile } from '../utils/avatarUtils';
+import { USER_ATTR_CAPTURE_AVATAR } from '../utils/userAttributes';
 import { validateProfile, validateSecurity } from './settings/validation';
 
 function cn(...classes) {
@@ -244,7 +246,7 @@ function NotificationItemRow({
 }
 
 export default function Settings() {
-  const { user, role, updateProfile, verifyCurrentPassword } = useAuth();
+  const { user, role, updateProfile, verifyCurrentPassword, updateUserAttribute } = useAuth();
   const { mode, accentColor, presets, setAccentColor, setThemeMode } = useTheme();
   const { isConnected, pushNotification } = useNotificationContext();
   const { language, setLanguage, t, languages, dir } = useLocale();
@@ -271,6 +273,7 @@ export default function Settings() {
     email: stored.profile?.email ?? user?.email ?? '',
     phone: stored.profile?.phone ?? user?.phone ?? '',
     company: stored.profile?.company ?? '',
+    avatar: stored.profile?.avatar ?? user?.avatar ?? '',
   });
   const [notifSettings, setNotifSettings] = useState({
     ...DEFAULT_NOTIF,
@@ -285,6 +288,8 @@ export default function Settings() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef(null);
 
   useEffect(() => {
     setCustomAccent(accentColor);
@@ -297,6 +302,7 @@ export default function Settings() {
       name: user.name ?? prev.name,
       email: user.email ?? prev.email,
       phone: user.phone ?? prev.phone,
+      avatar: user.avatar ?? prev.avatar,
     }));
   }, [user]);
 
@@ -343,6 +349,55 @@ export default function Settings() {
     setActiveTab(id);
     setFieldErrors({});
   };
+
+  const handleAvatarSelect = useCallback(async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setAvatarUploading(true);
+    setFieldErrors((prev) => ({ ...prev, avatar: undefined, form: undefined }));
+    try {
+      const dataUrl = await processAvatarFile(file, t);
+      await updateUserAttribute(USER_ATTR_CAPTURE_AVATAR, dataUrl);
+      setProfile((prev) => {
+        const next = { ...prev, avatar: dataUrl };
+        persistSettings({ profile: next });
+        return next;
+      });
+      pushNotification?.({
+        type: 'success',
+        title: t('settings.saveSuccessTitle'),
+        message: t('settings.profile.photoUploaded'),
+      });
+    } catch (err) {
+      setFieldErrors((prev) => ({ ...prev, avatar: err.message || t('settings.saveFailed') }));
+    } finally {
+      setAvatarUploading(false);
+    }
+  }, [t, updateUserAttribute, pushNotification]);
+
+  const handleAvatarRemove = useCallback(async () => {
+    setAvatarUploading(true);
+    setFieldErrors((prev) => ({ ...prev, avatar: undefined, form: undefined }));
+    try {
+      await updateUserAttribute(USER_ATTR_CAPTURE_AVATAR, null);
+      setProfile((prev) => {
+        const next = { ...prev, avatar: '' };
+        persistSettings({ profile: next });
+        return next;
+      });
+      pushNotification?.({
+        type: 'success',
+        title: t('settings.saveSuccessTitle'),
+        message: t('settings.profile.removePhoto'),
+      });
+    } catch (err) {
+      setFieldErrors((prev) => ({ ...prev, avatar: err.message || t('settings.saveFailed') }));
+    } finally {
+      setAvatarUploading(false);
+    }
+  }, [t, updateUserAttribute, pushNotification]);
 
   const handleSave = useCallback(async () => {
     setFieldErrors({});
@@ -474,23 +529,60 @@ export default function Settings() {
 
               <div className="flex items-center gap-4">
                 <div className="relative">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-capture-primary to-cyan-700 flex items-center justify-center shadow-glow-sm">
-                    <User className="w-8 h-8 text-slate-950" />
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-capture-primary to-cyan-700 flex items-center justify-center shadow-glow-sm overflow-hidden">
+                    {profile.avatar ? (
+                      <img
+                        src={profile.avatar}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="w-8 h-8 text-slate-950" />
+                    )}
                   </div>
                   <button
                     type="button"
-                    disabled
-                    aria-disabled="true"
-                    title={t('settings.profile.photoSoon')}
-                    className="absolute -bottom-1 -start-1 p-1.5 bg-capture-card rounded-full border border-slate-600/30 opacity-50 cursor-not-allowed"
+                    disabled={avatarUploading}
+                    onClick={() => avatarInputRef.current?.click()}
+                    title={t('settings.profile.changePhoto')}
+                    className={cn(
+                      'absolute -bottom-1 -start-1 p-1.5 bg-capture-card rounded-full border border-slate-600/30 transition-colors',
+                      avatarUploading
+                        ? 'opacity-50 cursor-wait'
+                        : 'hover:border-capture-primary/40 hover:text-capture-glow',
+                    )}
                     aria-label={t('settings.profile.changePhoto')}
                   >
                     <Camera className="w-3.5 h-3.5 text-capture-metallic" />
                   </button>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept={AVATAR_ACCEPT}
+                    className="sr-only"
+                    aria-hidden="true"
+                    tabIndex={-1}
+                    onChange={handleAvatarSelect}
+                  />
                 </div>
                 <div>
                   <p className="font-medium text-slate-100">{profile.name || t('common.notAvailable')}</p>
                   <p className="text-sm text-slate-400" dir="ltr">{profile.email}</p>
+                  {avatarUploading && (
+                    <p className="text-xs text-capture-glow mt-1">{t('settings.profile.photoUploading')}</p>
+                  )}
+                  {fieldErrors.avatar && (
+                    <p className="text-xs text-rose-400 mt-1">{fieldErrors.avatar}</p>
+                  )}
+                  {profile.avatar && !avatarUploading && (
+                    <button
+                      type="button"
+                      onClick={handleAvatarRemove}
+                      className="text-xs text-slate-500 hover:text-rose-400 mt-1 transition-colors"
+                    >
+                      {t('settings.profile.removePhoto')}
+                    </button>
+                  )}
                 </div>
               </div>
 

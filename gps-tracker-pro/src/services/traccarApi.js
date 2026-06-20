@@ -62,7 +62,12 @@ export const userApi = {
   remove: (id) => fetchApi(`/users/${id}`, { method: 'DELETE' }),
   updateAttribute: async (id, key, value) => {
     const current = await fetchApi(`/users/${id}`);
-    const attributes = { ...(current.attributes ?? {}), [key]: value };
+    const attributes = { ...(current.attributes ?? {}) };
+    if (value == null || value === '') {
+      delete attributes[key];
+    } else {
+      attributes[key] = value;
+    }
     return fetchApi(`/users/${id}`, { method: 'PUT', body: { ...current, attributes } });
   },
 };

@@ -9,6 +9,7 @@ const {
   mockUser,
   updateProfileMock,
   verifyCurrentPasswordMock,
+  updateUserAttributeMock,
   pushNotificationMock,
 } = vi.hoisted(() => ({
   mockUser: {
@@ -18,9 +19,11 @@ const {
     phone: '+212612345678',
     role: 'admin',
     twoFactorEnabled: false,
+    avatar: null,
   },
   updateProfileMock: vi.fn(),
   verifyCurrentPasswordMock: vi.fn(),
+  updateUserAttributeMock: vi.fn(),
   pushNotificationMock: vi.fn(),
 }));
 
@@ -30,6 +33,7 @@ vi.mock('../../src/context/AuthContext', () => ({
     role: 'admin',
     updateProfile: (...args) => updateProfileMock(...args),
     verifyCurrentPassword: (...args) => verifyCurrentPasswordMock(...args),
+    updateUserAttribute: (...args) => updateUserAttributeMock(...args),
   }),
 }));
 
@@ -73,6 +77,7 @@ describe('Settings page', () => {
     localStorage.clear();
     updateProfileMock.mockResolvedValue({});
     verifyCurrentPasswordMock.mockResolvedValue(undefined);
+    updateUserAttributeMock.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -90,6 +95,11 @@ describe('Settings page', () => {
   it('shows company local-only hint', () => {
     renderPage();
     expect(screen.getByText(/محلياً على هذا الجهاز/)).toBeTruthy();
+  });
+
+  it('enables profile photo upload button', () => {
+    renderPage(['/settings?tab=profile']);
+    expect(screen.getByRole('button', { name: 'تغيير الصورة' }).disabled).toBe(false);
   });
 
   it('validates short password on security tab', async () => {

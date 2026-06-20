@@ -98,8 +98,12 @@ export default function Navbar({ onMenuClick, showMenu = false, searchQuery = ''
               )}
               aria-expanded={profileOpen}
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-capture-primary to-cyan-700 flex items-center justify-center shadow-glow-sm">
-                <User className="w-4 h-4 text-slate-950" />
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-capture-primary to-cyan-700 flex items-center justify-center shadow-glow-sm overflow-hidden shrink-0">
+                {user?.avatar ? (
+                  <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-4 h-4 text-slate-950" />
+                )}
               </div>
               <span className="hidden md:block text-sm font-medium text-slate-200 max-w-[100px] truncate">
                 {user?.name}
