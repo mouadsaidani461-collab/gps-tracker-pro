@@ -37,6 +37,8 @@ export const MAP = {
 };
 
 // ── Auth ──
+export const APP_MIN_PASSWORD_LENGTH = 12;
+
 export const AUTH = {
   tokenKey: 'capture_auth_token',
   userKey: 'capture_auth_user',

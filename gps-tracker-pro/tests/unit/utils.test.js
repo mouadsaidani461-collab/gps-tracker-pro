@@ -117,8 +117,8 @@ describe('validation', () => {
     expect(validateMoroccoPhone('0612345678', { language: 'ar' })).toMatch(/غير صالح/);
   });
   it('enforces shared minimum password length', () => {
-    expect(MIN_PASSWORD_LENGTH).toBe(8);
-    expect(validatePassword('short', { language: 'en' })).toMatch(/8/);
-    expect(validatePassword('longenough', { language: 'en' })).toBeNull();
+    expect(MIN_PASSWORD_LENGTH).toBe(12);
+    expect(validatePassword('short', { language: 'en' })).toMatch(/12/);
+    expect(validatePassword('longenough12', { language: 'en' })).toBeNull();
   });
 });

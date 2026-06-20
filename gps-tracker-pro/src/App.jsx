@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect, lazy, Suspense, useCallback, useMemo } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LocaleProvider, useLocale } from './context/LocaleContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -38,8 +38,30 @@ function cn(...classes) {
 function AppLayout() {
   const [open, setOpen] = useState(false);
   const [mobile, setMobile] = useState(false);
-  const { dir } = useLocale();
+  const { dir, t } = useLocale();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const fleetSearch = useMemo(() => {
+    if (location.pathname !== '/vehicles') return '';
+    return new URLSearchParams(location.search).get('q') ?? '';
+  }, [location.pathname, location.search]);
+
+  const handleFleetSearchChange = useCallback((value) => {
+    if (location.pathname !== '/vehicles') return;
+    const params = new URLSearchParams(location.search);
+    const trimmed = value.trim();
+    if (trimmed) params.set('q', trimmed);
+    else params.delete('q');
+    const search = params.toString();
+    navigate({ pathname: '/vehicles', search: search ? `?${search}` : '' }, { replace: true });
+  }, [location.pathname, location.search, navigate]);
+
+  const handleFleetSearchSubmit = useCallback((value) => {
+    const trimmed = value.trim();
+    const search = trimmed ? `?q=${encodeURIComponent(trimmed)}` : '';
+    navigate(`/vehicles${search}`);
+  }, [navigate]);
 
   useEffect(() => {
     const check = () => setMobile(window.innerWidth < 1024);
@@ -84,7 +106,7 @@ function AppLayout() {
           type="button"
           className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
           onClick={() => setOpen(false)}
-          aria-label="Close menu"
+          aria-label={t('drawer.closeMenu')}
         />
       )}
 
@@ -98,6 +120,9 @@ function AppLayout() {
         <Navbar
           showMenu={mobile}
           onMenuClick={() => setOpen((prev) => !prev)}
+          searchQuery={fleetSearch}
+          onSearchChange={handleFleetSearchChange}
+          onSearchSubmit={handleFleetSearchSubmit}
         />
         <main className="flex-1 overflow-y-auto p-4 lg:p-6 capture-grid-bg">
           <Outlet />

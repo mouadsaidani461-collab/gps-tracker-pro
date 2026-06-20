@@ -26,7 +26,13 @@ function useClickOutside(ref, handler) {
   }, [ref, handler]);
 }
 
-export default function Navbar({ onMenuClick, showMenu = false, searchQuery = '', onSearchChange }) {
+export default function Navbar({
+  onMenuClick,
+  showMenu = false,
+  searchQuery = '',
+  onSearchChange,
+  onSearchSubmit,
+}) {
   const { user, logout, role } = useAuth();
   const { t, language } = useLocale();
   const navigate = useNavigate();
@@ -38,6 +44,10 @@ export default function Navbar({ onMenuClick, showMenu = false, searchQuery = ''
 
   useClickOutside(profileRef, () => setProfileOpen(false));
 
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
   const handleSearch = useCallback(
     (e) => {
       const val = e.target.value;
@@ -46,6 +56,13 @@ export default function Navbar({ onMenuClick, showMenu = false, searchQuery = ''
     },
     [onSearchChange],
   );
+
+  const handleSearchKeyDown = useCallback((e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onSearchSubmit?.(localSearch);
+    }
+  }, [localSearch, onSearchSubmit]);
 
   const handleLogout = () => {
     setProfileOpen(false);
@@ -161,6 +178,7 @@ export default function Navbar({ onMenuClick, showMenu = false, searchQuery = ''
               type="search"
               value={localSearch}
               onChange={handleSearch}
+              onKeyDown={handleSearchKeyDown}
               placeholder={t('navbar.searchPlaceholder')}
               className={cn(
                 'w-full ps-10 pe-4 py-2 rounded-lg text-sm',

@@ -4,6 +4,7 @@ import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { APP_NAME } from '../utils/constants';
+import { validatePassword } from '../utils/validation';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
@@ -16,7 +17,7 @@ function cn(...classes) {
 
 export default function Login() {
   const { login, isAuthenticated, loading: authLoading, sessionExpired, clearSessionExpired, error: authError } = useAuth();
-  const { dir, t } = useLocale();
+  const { dir, t, language } = useLocale();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -55,8 +56,9 @@ export default function Login() {
     }
     if (!password) {
       errors.password = t('common.validation.passwordRequired');
-    } else if (password.length < 6) {
-      errors.password = t('common.validation.passwordMinLength', { min: 6 });
+    } else {
+      const passwordError = validatePassword(password, { language });
+      if (passwordError) errors.password = passwordError;
     }
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;

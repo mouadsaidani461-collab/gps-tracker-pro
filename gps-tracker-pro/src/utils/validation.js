@@ -1,6 +1,7 @@
 import { translate } from '../i18n';
+import { APP_MIN_PASSWORD_LENGTH } from './constants';
 
-export const MIN_PASSWORD_LENGTH = 8;
+export const MIN_PASSWORD_LENGTH = APP_MIN_PASSWORD_LENGTH;
 
 const IMEI_PATTERN = /^\d{15}$/;
 const MOROCCO_PHONE_PATTERN = /^\+212[5-7]\d{8}$/;

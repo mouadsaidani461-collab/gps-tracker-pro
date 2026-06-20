@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   LayoutGrid, List, Search, SlidersHorizontal, Download, RefreshCw,
   MapPin, CheckSquare, Square, X, Fuel, Gauge,
@@ -213,6 +213,8 @@ function VehicleDetailModal({ vehicle, open, onClose, onTrackMap }) {
 
 export default function VehiclesPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSearch = searchParams.get('q') ?? '';
   const {
     vehicles,
     selectVehicle,
@@ -228,7 +230,7 @@ export default function VehiclesPage() {
 
   const [viewMode, setViewMode] = useState('grid');
   const [showFilters, setShowFilters] = useState(false);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(urlSearch);
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [minFuel, setMinFuel] = useState(0);
@@ -270,6 +272,19 @@ export default function VehiclesPage() {
   const isDbEmpty = !loading && vehicles.length === 0;
   const isFilteredEmpty = !loading && vehicles.length > 0 && filtered.length === 0;
   const listEmpty = isDbEmpty || isFilteredEmpty;
+
+  useEffect(() => {
+    setSearch(urlSearch);
+  }, [urlSearch]);
+
+  const handleSearchChange = useCallback((value) => {
+    setSearch(value);
+    const params = new URLSearchParams(searchParams);
+    const trimmed = value.trim();
+    if (trimmed) params.set('q', trimmed);
+    else params.delete('q');
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     setPage(1);
@@ -394,7 +409,7 @@ export default function VehiclesPage() {
           <input
             type="search"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder={t('vehicles.searchPlaceholderPage')}
             className="w-full ps-10 pe-4 py-2.5 rounded-lg text-sm bg-capture-bg/60 border border-slate-600/30 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:shadow-glow-sm focus:border-capture-primary/50"
           />

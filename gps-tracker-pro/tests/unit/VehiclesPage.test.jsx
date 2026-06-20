@@ -43,10 +43,10 @@ function setupHook(overrides = {}) {
   });
 }
 
-function renderPage() {
+function renderPage(initialEntries = ['/vehicles']) {
   return render(
     renderWithLocale(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         <VehiclesPage />
       </MemoryRouter>,
     ),
@@ -80,6 +80,11 @@ describe('VehiclesPage', () => {
     renderPage();
     expect(screen.getByText('Network error')).toBeTruthy();
     expect(screen.getByText('إعادة المحاولة')).toBeTruthy();
+  });
+
+  it('applies search from URL query param', () => {
+    renderPage(['/vehicles?q=zzzz-no-match']);
+    expect(screen.getByText('لا توجد مركبات تطابق الفلاتر')).toBeTruthy();
   });
 
   it('shows filter empty state when search matches nothing', () => {
