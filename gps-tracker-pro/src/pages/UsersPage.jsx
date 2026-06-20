@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { User, Shield, Mail, Plus, Pencil, Trash2, RefreshCw } from 'lucide-react';
+import { User, Shield, Mail, Plus, Pencil, Trash2, RefreshCw, Search } from 'lucide-react';
 import { userApi } from '../services/traccarApi';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { getRoleLabel } from '../utils/authRoles';
+import { validatePassword } from '../utils/validation';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
+import UserDeleteConfirm from '../components/users/UserDeleteConfirm';
 import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../utils/formatters';
+import { MIN_USER_PASSWORD_LENGTH } from './users/constants';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -35,26 +38,42 @@ function mapUserRow(user, language) {
   };
 }
 
+function matchesSearch(row, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    String(row.name ?? '').toLowerCase().includes(q)
+    || String(row.email ?? '').toLowerCase().includes(q)
+  );
+}
+
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const { dir, t, language } = useLocale();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
+  const [loadError, setLoadError] = useState(null);
+  const [actionError, setActionError] = useState(null);
+  const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const isEditingSelf = Boolean(
+    editing && String(editing.id) === String(currentUser?.id),
+  );
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     try {
       const data = await userApi.list();
       setUsers((data ?? []).map((u) => mapUserRow(u, language)));
     } catch (err) {
-      setError(err.message || t('users.loadFailed'));
+      setLoadError(err.message || t('users.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -63,6 +82,11 @@ export default function UsersPage() {
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  const filteredUsers = useMemo(
+    () => users.filter((user) => matchesSearch(user, search)),
+    [users, search],
+  );
 
   const openCreate = () => {
     setEditing(null);
@@ -90,11 +114,18 @@ export default function UsersPage() {
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       return t('users.validation.emailInvalid');
     }
-    if (!editing && (!form.password || form.password.length < 6)) {
-      return t('users.validation.passwordRequired');
-    }
-    if (form.password && form.password.length < 6) {
-      return t('users.validation.passwordShort');
+    if (!editing) {
+      const passwordError = validatePassword(form.password, {
+        language,
+        min: MIN_USER_PASSWORD_LENGTH,
+      });
+      if (passwordError) return passwordError;
+    } else if (form.password) {
+      const passwordError = validatePassword(form.password, {
+        language,
+        min: MIN_USER_PASSWORD_LENGTH,
+      });
+      if (passwordError) return passwordError;
     }
     return '';
   };
@@ -116,7 +147,7 @@ export default function UsersPage() {
         email: form.email.trim(),
         administrator: form.administrator,
         readonly: form.readonly,
-        disabled: form.disabled,
+        disabled: isEditingSelf ? false : form.disabled,
       };
       if (form.password) payload.password = form.password;
 
@@ -135,20 +166,25 @@ export default function UsersPage() {
     }
   };
 
-  const handleDelete = async (row) => {
+  const openDeleteConfirm = (row) => {
     if (String(row.id) === String(currentUser?.id)) {
-      setError(t('users.cannotDeleteSelf'));
+      setActionError(t('users.cannotDeleteSelf'));
       return;
     }
-    if (!window.confirm(t('users.deleteConfirm', { name: row.name }))) return;
+    setDeleteTarget(row);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
 
     setSaving(true);
-    setError(null);
+    setActionError(null);
     try {
-      await userApi.remove(row.id);
+      await userApi.remove(deleteTarget.id);
+      setDeleteTarget(null);
       await loadUsers();
     } catch (err) {
-      setError(err.message || t('users.deleteFailed'));
+      setActionError(err.message || t('users.deleteFailed'));
     } finally {
       setSaving(false);
     }
@@ -161,7 +197,7 @@ export default function UsersPage() {
   }), [users]);
 
   return (
-    <div dir={dir} className="space-y-6">
+    <div dir={dir} className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-100">{t('users.pageTitle')}</h1>
@@ -177,7 +213,7 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="capture-card p-4">
           <p className="text-[10px] text-capture-metallic">{t('users.total')}</p>
           <p className="text-2xl font-bold text-slate-100">
@@ -198,11 +234,31 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="px-4 py-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-sm text-rose-300">
-          {error}
+      {loadError && (
+        <div className="px-4 py-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-sm text-rose-300 flex items-center justify-between gap-3">
+          <span>{loadError}</span>
+          <Button variant="secondary" size="sm" onClick={loadUsers}>{t('common.retry')}</Button>
         </div>
       )}
+
+      {actionError && (
+        <div className="px-4 py-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-sm text-rose-300">
+          {actionError}
+        </div>
+      )}
+
+      <div className="capture-card p-4">
+        <div className="relative">
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('users.searchPlaceholder')}
+            className="w-full ps-10 pe-4 py-2.5 rounded-lg text-sm bg-capture-bg/60 border border-slate-600/30 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:shadow-glow-sm focus:border-capture-primary/50"
+          />
+        </div>
+      </div>
 
       <div className="capture-card overflow-hidden border border-slate-600/25">
         <div className="overflow-x-auto">
@@ -221,12 +277,14 @@ export default function UsersPage() {
                 <tr>
                   <td colSpan={5} className="px-4 py-10 text-center text-capture-metallic">{t('common.loading')}</td>
                 </tr>
-              ) : users.length === 0 ? (
+              ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-slate-500">{t('users.noUsers')}</td>
+                  <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                    {users.length === 0 ? t('users.noUsers') : t('users.searchEmpty')}
+                  </td>
                 </tr>
               ) : (
-                users.map((user) => (
+                filteredUsers.map((user) => (
                   <tr key={user.id} className="border-b border-slate-600/15 hover:bg-capture-card/40">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
@@ -237,8 +295,8 @@ export default function UsersPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-400">
-                      <div className="flex items-center gap-1.5">
-                        <Mail className="w-3.5 h-3.5 text-capture-metallic" />
+                      <div className="flex items-center gap-1.5" dir="ltr">
+                        <Mail className="w-3.5 h-3.5 text-capture-metallic shrink-0" />
                         {user.email}
                       </div>
                     </td>
@@ -260,12 +318,13 @@ export default function UsersPage() {
                           onClick={() => openEdit(user)}
                           className="p-2 rounded-lg text-slate-400 hover:text-capture-glow hover:bg-capture-primary/10"
                           title={t('common.edit')}
+                          aria-label={t('common.edit')}
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDelete(user)}
+                          onClick={() => openDeleteConfirm(user)}
                           disabled={String(user.id) === String(currentUser?.id)}
                           className={cn(
                             'p-2 rounded-lg',
@@ -274,6 +333,7 @@ export default function UsersPage() {
                               : 'text-rose-400 hover:bg-rose-500/10',
                           )}
                           title={t('common.delete')}
+                          aria-label={t('common.delete')}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -324,7 +384,11 @@ export default function UsersPage() {
             <input
               type="checkbox"
               checked={form.administrator}
-              onChange={(e) => setForm((p) => ({ ...p, administrator: e.target.checked }))}
+              onChange={(e) => setForm((p) => ({
+                ...p,
+                administrator: e.target.checked,
+                readonly: e.target.checked ? false : p.readonly,
+              }))}
               className="accent-capture-primary"
             />
             {t('users.adminRole')} ({getRoleLabel('admin', language)})
@@ -333,22 +397,42 @@ export default function UsersPage() {
             <input
               type="checkbox"
               checked={form.readonly}
-              onChange={(e) => setForm((p) => ({ ...p, readonly: e.target.checked }))}
+              onChange={(e) => setForm((p) => ({
+                ...p,
+                readonly: e.target.checked,
+                administrator: e.target.checked ? false : p.administrator,
+              }))}
               className="accent-capture-primary"
             />
             {t('users.readonly')}
           </label>
-          <label className="flex items-center gap-2 text-sm text-slate-300">
+          <label className={cn(
+            'flex items-center gap-2 text-sm text-slate-300',
+            isEditingSelf && 'opacity-60 cursor-not-allowed',
+          )}
+          >
             <input
               type="checkbox"
               checked={form.disabled}
+              disabled={isEditingSelf}
               onChange={(e) => setForm((p) => ({ ...p, disabled: e.target.checked }))}
               className="accent-capture-primary"
             />
             {t('users.disabled')}
           </label>
+          {isEditingSelf && (
+            <p className="text-xs text-slate-500">{t('users.cannotDisableSelf')}</p>
+          )}
         </div>
       </Modal>
+
+      <UserDeleteConfirm
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        userName={deleteTarget?.name}
+        onConfirm={handleDeleteConfirm}
+        loading={saving}
+      />
     </div>
   );
 }
