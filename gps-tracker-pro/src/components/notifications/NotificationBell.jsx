@@ -7,6 +7,8 @@ import NotificationItem from './NotificationItem';
 import { isCriticalNotification } from './notificationTypes';
 import { loadSoundEnabled } from '../../utils/notificationPreferences';
 import { formatNumber, NUMERIC_DISPLAY_CLASS } from '../../utils/formatters';
+import NavbarDropdownPanel from '../layout/NavbarDropdownPanel';
+import { useClickOutside } from '../../utils/clickOutside';
 
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -40,16 +42,6 @@ function playCriticalSound() {
   }
 }
 
-function useClickOutside(ref, handler) {
-  useEffect(() => {
-    function onMouseDown(e) {
-      if (ref.current && !ref.current.contains(e.target)) handler();
-    }
-    document.addEventListener('mousedown', onMouseDown);
-    return () => document.removeEventListener('mousedown', onMouseDown);
-  }, [ref, handler]);
-}
-
 export default function NotificationBell({ onOpenChange, className = '' }) {
   const { dir, t } = useLocale();
   const {
@@ -65,7 +57,8 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
   } = useNotificationContext();
 
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const triggerRef = useRef(null);
+  const panelRef = useRef(null);
   const knownIdsRef = useRef(new Set(notifications.map((n) => n.id)));
 
   const closePanel = useCallback(() => {
@@ -73,7 +66,7 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
     onOpenChange?.(false);
   }, [onOpenChange]);
 
-  useClickOutside(ref, closePanel);
+  useClickOutside([triggerRef, panelRef], closePanel);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -116,7 +109,7 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
     : t('notifications.title');
 
   return (
-    <div className={cn('relative', className)} ref={ref}>
+    <div className={cn('relative', className)} ref={triggerRef}>
       <button
         type="button"
         onClick={toggleOpen}
@@ -169,23 +162,17 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
         />
       </button>
 
-      {open && (
-        <div
-          dir={dir}
-          role="dialog"
-          aria-label={t('notifications.title')}
-          className={cn(
-            'absolute start-0 mt-2 w-80 sm:w-96',
-            'bg-capture-card/95 backdrop-blur-xl',
-            'border border-slate-600/25 rounded-xl',
-            'shadow-glow-md overflow-hidden',
-            'animate-[fade-in_0.2s_ease-out]',
-            'z-50',
-          )}
-        >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-600/20 gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <h3 className="font-semibold text-slate-100 text-sm">{t('notifications.title')}</h3>
+      <NavbarDropdownPanel
+        open={open}
+        triggerRef={triggerRef}
+        panelRef={panelRef}
+        dir={dir}
+        ariaLabel={t('notifications.title')}
+        maxHeightRatio={0.72}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-600/20 gap-2 shrink-0">
+          <div className="flex items-center justify-center sm:justify-start gap-2 min-w-0 flex-1">
+            <h3 className="font-semibold text-slate-100 text-sm text-center sm:text-start">{t('notifications.title')}</h3>
               {unreadCount > 0 && (
                 <span className={cn(
                   'px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-capture-danger/20 text-capture-danger border border-capture-danger/30',
@@ -233,7 +220,7 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
             </div>
           </div>
 
-          <div className="max-h-80 overflow-y-auto" aria-live="polite">
+          <div className="flex-1 min-h-0 overflow-y-auto" aria-live="polite">
             {notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                 <Bell className="w-8 h-8 text-slate-600 mb-2" aria-hidden="true" />
@@ -263,7 +250,7 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
           </div>
 
           {notifications.length > 0 && (
-            <div className="px-4 py-2 border-t border-slate-600/20 flex flex-wrap items-center justify-between gap-2">
+            <div className="px-4 py-2 border-t border-slate-600/20 flex flex-wrap items-center justify-between gap-2 shrink-0">
               <p className="text-[10px] text-slate-500">
                 {t('notifications.footer', {
                   count: formatNumber(notifications.length, { maximumFractionDigits: 0 }),
@@ -289,8 +276,7 @@ export default function NotificationBell({ onOpenChange, className = '' }) {
               </div>
             </div>
           )}
-        </div>
-      )}
+      </NavbarDropdownPanel>
     </div>
   );
 }
