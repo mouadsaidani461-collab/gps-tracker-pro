@@ -61,6 +61,24 @@
   bottom: var(--capture-float-above-nav);
 }
 
+/* Notification row actions: always visible on touch; hover-only on fine pointers */
+@media (hover: hover) and (pointer: fine) {
+  .capture-notif-action {
+    opacity: 0;
+  }
+
+  .group:hover .capture-notif-action,
+  .group:focus-within .capture-notif-action {
+    opacity: 1;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .capture-notif-action {
+    opacity: 1;
+  }
+}
+
 /* ── Base Reset ── */
 *,
 *::before,

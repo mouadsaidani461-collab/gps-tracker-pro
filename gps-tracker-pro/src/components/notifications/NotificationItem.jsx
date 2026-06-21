@@ -80,9 +80,9 @@ export default function NotificationItem({
                   onMarkRead(notification.id);
                 }}
                 className={cn(
-                  'p-1 rounded-md opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+                  'capture-notif-action min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md',
                   'text-capture-glow hover:text-capture-primary hover:bg-capture-primary/10',
-                  'transition-all duration-200',
+                  'transition-all duration-200 touch-manipulation',
                 )}
                 title={t('notifications.markRead')}
                 aria-label={t('notifications.markRead')}
@@ -98,9 +98,9 @@ export default function NotificationItem({
                   onRemove(notification.id);
                 }}
                 className={cn(
-                  'p-1 rounded-md opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+                  'capture-notif-action min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md',
                   'text-slate-500 hover:text-rose-300 hover:bg-rose-500/10',
-                  'transition-all duration-200',
+                  'transition-all duration-200 touch-manipulation',
                 )}
                 title={t('notifications.dismiss')}
                 aria-label={t('notifications.dismiss')}

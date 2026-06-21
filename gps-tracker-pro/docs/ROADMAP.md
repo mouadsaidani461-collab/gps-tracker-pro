@@ -32,6 +32,10 @@
 - [x] polish التطبيق + اختبارات (164)
 - [x] إصلاح تصدير التقارير + رفع صورة Profile
 - [ ] تدوير `ADMIN_PASSWORD` و `TRACCAR_SERVICE_TOKEN` (كانت في git history)
+  ```bash
+  cd gps-tracker-pro
+  ROTATE_CONFIRM=1 ./scripts/rotate-production-secrets.sh
+  ```
 - [ ] على Hetzner: `git pull` + `./scripts/deploy-production.sh http`
 - [ ] تحقق: `http://<HETZNER_IP>/` و `http://<HETZNER_IP>/api/server` → 200
 - [ ] smoke: login + map + WebSocket + export + avatar

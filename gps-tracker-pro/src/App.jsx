@@ -83,6 +83,7 @@ function AppLayout() {
   }, [mobile, open]);
 
   const slideClosed = dir === 'rtl' ? 'translate-x-full' : '-translate-x-full';
+  const isMapRoute = location.pathname === '/map';
 
   return (
     <div dir={dir} className="min-h-screen bg-capture-bg">
@@ -125,7 +126,14 @@ function AppLayout() {
           onSearchChange={handleFleetSearchChange}
           onSearchSubmit={handleFleetSearchSubmit}
         />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6 pb-[var(--capture-main-pb-mobile)] lg:pb-6 capture-grid-bg">
+        <main
+          className={cn(
+            'flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6 capture-grid-bg',
+            isMapRoute
+              ? 'pb-0 lg:pb-6'
+              : 'pb-[var(--capture-main-pb-mobile)] lg:pb-6',
+          )}
+        >
           <Outlet />
         </main>
         {!(mobile && open) && <MobileBottomNav />}

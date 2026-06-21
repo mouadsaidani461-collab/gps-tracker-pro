@@ -148,7 +148,11 @@ Checks: Traccar :8082, HTTPS, disk >80%, SSL <30 days, memory/CPU. Alerts via `A
 - [ ] `.env.production` and `.env` not in git (see `.gitignore`)
 - [ ] `./scripts/audit-secrets.sh` passes
 - [ ] `./scripts/validate-production-secrets.sh` passes
-- [ ] Secrets rotated if `.env` was ever committed
+- [ ] Secrets rotated if `.env` was ever committed:
+  ```bash
+  ROTATE_CONFIRM=1 ./scripts/rotate-production-secrets.sh
+  ./scripts/deploy-production.sh deploy
+  ```
 - [ ] `ADMIN_PASSWORD` ≥ 12 chars
 - [ ] `TRACCAR_SERVICE_TOKEN` 32+ hex
 - [ ] `POSTGRES_PASSWORD` ≥ 12 chars

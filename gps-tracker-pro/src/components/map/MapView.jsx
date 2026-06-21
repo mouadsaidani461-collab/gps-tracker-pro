@@ -147,7 +147,7 @@ export default function MapView({
       {showVehicleCard && selectedVehicle && !isDrawing && (
         <div
           className={cn(
-            'absolute bottom-4 start-4 z-[1000] w-80 max-w-[calc(100%-2rem)]',
+            'absolute start-4 z-[1000] w-80 max-w-[calc(100%-2rem)] capture-floating-above-nav',
             'animate-[fade-in_0.25s_ease-out]',
           )}
         >
