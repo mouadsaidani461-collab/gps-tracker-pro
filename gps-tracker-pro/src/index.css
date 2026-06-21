@@ -19,6 +19,48 @@
   --shadow-glow-lg: 0 0 40px rgba(103, 232, 249, 0.2);
 }
 
+/* ── Mobile app chrome (header + bottom nav + safe areas) ── */
+:root {
+  --capture-header-h: 3.5rem;
+  --capture-bottom-nav-h: 4rem;
+  --capture-safe-top: env(safe-area-inset-top, 0px);
+  --capture-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --capture-main-pb-mobile: calc(var(--capture-bottom-nav-h) + var(--capture-safe-bottom) + 0.75rem);
+  --capture-map-height: calc(
+    100dvh - var(--capture-header-h) - var(--capture-bottom-nav-h)
+    - var(--capture-safe-top) - var(--capture-safe-bottom)
+  );
+  --capture-float-above-nav: calc(var(--capture-bottom-nav-h) + var(--capture-safe-bottom) + 0.75rem);
+}
+
+@media (min-width: 640px) {
+  :root {
+    --capture-header-h: 4rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --capture-bottom-nav-h: 0px;
+    --capture-main-pb-mobile: 1.5rem;
+    --capture-map-height: calc(100dvh - var(--capture-header-h) - var(--capture-safe-top) - 1.5rem);
+    --capture-float-above-nav: 1rem;
+  }
+}
+
+.capture-map-shell {
+  height: var(--capture-map-height);
+  min-height: 280px;
+}
+
+.capture-map-controls {
+  bottom: var(--capture-float-above-nav);
+}
+
+.capture-floating-above-nav {
+  bottom: var(--capture-float-above-nav);
+}
+
 /* ── Base Reset ── */
 *,
 *::before,

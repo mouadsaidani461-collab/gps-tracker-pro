@@ -364,24 +364,26 @@ export default function Reports() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">{t('reports.title')}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-100">{t('reports.title')}</h1>
           <p className="text-sm text-capture-metallic mt-1">{t('reports.subtitle')}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 w-full sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           {exportMsg && (
-            <span className="text-xs text-capture-success px-3 py-1.5 rounded-lg bg-capture-success/10 border border-capture-success/30 animate-[fade-in_0.2s_ease-out]">
+            <span className="text-xs text-capture-success px-3 py-1.5 rounded-lg bg-capture-success/10 border border-capture-success/30 animate-[fade-in_0.2s_ease-out] w-full sm:w-auto text-center sm:text-start">
               {exportMsg}
             </span>
           )}
-          <Button variant="secondary" size="sm" disabled={exportDisabled} title={exportDisabled && sortedData.length === 0 ? t('reports.exportDisabledHint') : undefined} loading={exporting} leftIcon={<FileText className="w-4 h-4" />} onClick={() => handleExport('pdf')}>
-            PDF
-          </Button>
-          <Button variant="secondary" size="sm" disabled={exportDisabled} title={exportDisabled && sortedData.length === 0 ? t('reports.exportDisabledHint') : undefined} loading={exporting} leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => handleExport('excel')}>
-            Excel
-          </Button>
-          <Button variant="primary" size="sm" disabled={exportDisabled} title={exportDisabled && sortedData.length === 0 ? t('reports.exportDisabledHint') : undefined} loading={exporting} leftIcon={<Download className="w-4 h-4" />} onClick={() => handleExport('csv')}>
-            CSV
-          </Button>
+          <div className="grid grid-cols-3 gap-2 w-full sm:flex sm:w-auto sm:gap-2">
+            <Button variant="secondary" size="sm" disabled={exportDisabled} title={exportDisabled && sortedData.length === 0 ? t('reports.exportDisabledHint') : undefined} loading={exporting} leftIcon={<FileText className="w-4 h-4" />} onClick={() => handleExport('pdf')}>
+              PDF
+            </Button>
+            <Button variant="secondary" size="sm" disabled={exportDisabled} title={exportDisabled && sortedData.length === 0 ? t('reports.exportDisabledHint') : undefined} loading={exporting} leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => handleExport('excel')}>
+              Excel
+            </Button>
+            <Button variant="primary" size="sm" disabled={exportDisabled} title={exportDisabled && sortedData.length === 0 ? t('reports.exportDisabledHint') : undefined} loading={exporting} leftIcon={<Download className="w-4 h-4" />} onClick={() => handleExport('csv')}>
+              CSV
+            </Button>
+          </div>
         </div>
       </div>
 

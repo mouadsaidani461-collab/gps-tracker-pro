@@ -60,14 +60,14 @@ export default function VehicleList({
         />
       </div>
 
-      <div className="flex flex-wrap gap-1 mb-3 shrink-0">
+      <div className="flex flex-wrap gap-1 mb-3 shrink-0 overflow-x-auto pb-1 snap-x snap-mandatory lg:overflow-visible lg:snap-none">
         {VEHICLE_FILTERS.map(({ value }) => (
           <button
             key={value}
             type="button"
             onClick={() => onFilterChange?.(value)}
             className={cn(
-              'px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200',
+              'px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 shrink-0 snap-start',
               filter === value
                 ? 'bg-capture-primary/20 text-capture-glow border border-capture-primary/40 shadow-glow-sm'
                 : 'bg-capture-surface/60 text-capture-metallic border border-transparent hover:border-slate-600/30 hover:text-slate-300',

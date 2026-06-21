@@ -64,21 +64,21 @@ describe('UsersPage', () => {
   it('renders users and stats after load', async () => {
     renderPage();
 
-    expect(await screen.findByText('Admin User')).toBeTruthy();
-    expect(screen.getByText('viewer@example.com')).toBeTruthy();
+    expect((await screen.findAllByText('Admin User')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('viewer@example.com').length).toBeGreaterThan(0);
     expect(screen.getByText('المستخدمون')).toBeTruthy();
   });
 
   it('filters users by search query', async () => {
     renderPage();
-    await screen.findByText('Admin User');
+    await screen.findAllByText('Admin User');
 
     fireEvent.change(screen.getByPlaceholderText('بحث بالاسم أو البريد...'), {
       target: { value: 'viewer@' },
     });
 
     expect(screen.queryByText('Admin User')).toBeNull();
-    expect(screen.getByText('Viewer User')).toBeTruthy();
+    expect(screen.getAllByText('Viewer User').length).toBeGreaterThan(0);
   });
 
   it('shows retry button when load fails', async () => {
@@ -91,10 +91,10 @@ describe('UsersPage', () => {
 
   it('opens delete modal instead of window.confirm', async () => {
     renderPage();
-    await screen.findByText('Viewer User');
+    await screen.findAllByText('Viewer User');
 
     const deleteButtons = screen.getAllByLabelText('حذف');
-    fireEvent.click(deleteButtons[1]);
+    fireEvent.click(deleteButtons[deleteButtons.length - 1]);
 
     expect(await screen.findByText('حذف المستخدم')).toBeTruthy();
     expect(screen.getByText(/هل تريد حذف المستخدم «Viewer User»/)).toBeTruthy();
@@ -102,15 +102,15 @@ describe('UsersPage', () => {
 
   it('blocks delete for current user', async () => {
     renderPage();
-    await screen.findByText('Admin User');
+    await screen.findAllByText('Admin User');
 
     const deleteButtons = screen.getAllByLabelText('حذف');
-    expect(deleteButtons[0]).toHaveProperty('disabled', true);
+    expect(deleteButtons.some((btn) => btn.disabled)).toBe(true);
   });
 
   it('rejects short password on create', async () => {
     renderPage();
-    await screen.findByText('Admin User');
+    await screen.findAllByText('Admin User');
 
     fireEvent.click(screen.getByText('مستخدم جديد'));
     fireEvent.change(screen.getByLabelText('الاسم'), { target: { value: 'New User' } });

@@ -88,14 +88,14 @@ function AppLayout() {
     <div dir={dir} className="min-h-screen bg-capture-bg">
       <aside
         className={cn(
-          'fixed top-0 bottom-0 z-40 flex flex-col overflow-hidden',
+          'fixed top-0 bottom-0 z-[60] flex flex-col overflow-hidden',
           'w-[280px] max-w-[80vw]',
           'bg-capture-surface/95 backdrop-blur-xl',
           'border-slate-600/20 shadow-2xl',
           'transition-transform duration-300 ease-out',
           dir === 'rtl' ? 'right-0 border-s' : 'left-0 border-e',
           mobile ? (open ? 'translate-x-0' : slideClosed) : 'translate-x-0',
-          'lg:translate-x-0 lg:shadow-none',
+          'lg:translate-x-0 lg:shadow-none lg:z-40',
         )}
         aria-hidden={mobile && !open}
       >
@@ -105,7 +105,7 @@ function AppLayout() {
       {mobile && open && (
         <button
           type="button"
-          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-[55] bg-black/50 backdrop-blur-sm lg:hidden"
           onClick={() => setOpen(false)}
           aria-label={t('drawer.closeMenu')}
         />
@@ -125,10 +125,10 @@ function AppLayout() {
           onSearchChange={handleFleetSearchChange}
           onSearchSubmit={handleFleetSearchSubmit}
         />
-        <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-6 capture-grid-bg">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6 pb-[var(--capture-main-pb-mobile)] lg:pb-6 capture-grid-bg">
           <Outlet />
         </main>
-        <MobileBottomNav />
+        {!(mobile && open) && <MobileBottomNav />}
       </div>
     </div>
   );

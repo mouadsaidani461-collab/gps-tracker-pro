@@ -65,7 +65,7 @@ export default function MapControls({
   const layerLabel = t(`map.layers.${layer}`);
 
   const btnClass = cn(
-    'w-9 h-9 flex items-center justify-center rounded-lg',
+    'w-11 h-11 lg:w-9 lg:h-9 flex items-center justify-center rounded-lg touch-manipulation',
     'bg-capture-card/90 backdrop-blur-md',
     'border border-slate-600/30 text-slate-300',
     'hover:text-capture-glow hover:border-capture-primary/40 hover:shadow-glow-sm',
@@ -78,7 +78,7 @@ export default function MapControls({
   );
 
   return (
-    <div className="absolute bottom-6 end-6 z-[1000] flex flex-col gap-1.5">
+    <div className="absolute end-3 lg:end-6 z-[1000] flex flex-col gap-1.5 capture-map-controls">
       <button type="button" onClick={handleZoomIn} className={btnClass} aria-label={t('mapControls.zoomIn')}>
         <Plus className="w-4 h-4" />
       </button>

@@ -141,10 +141,12 @@ export default function Dashboard() {
             {t('dashboard.subtitle')}
           </p>
         </div>
-        <LiveIndicator
-          isLive={isSimulating && isConnected}
-          lastUpdate={lastFleetUpdate ? new Date(lastFleetUpdate).toISOString() : null}
-        />
+        <div className="w-full sm:w-auto flex justify-start sm:justify-end">
+          <LiveIndicator
+            isLive={isSimulating && isConnected}
+            lastUpdate={lastFleetUpdate ? new Date(lastFleetUpdate).toISOString() : null}
+          />
+        </div>
       </div>
 
       {(vehiclesError || geofencesError) && (

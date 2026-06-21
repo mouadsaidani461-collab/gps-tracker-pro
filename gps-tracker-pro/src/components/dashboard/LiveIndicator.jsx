@@ -12,6 +12,7 @@ export default function LiveIndicator({
   isLive = true,
   interval = SIMULATION.vehicleUpdateInterval,
   lastUpdate,
+  className,
 }) {
   const { t } = useLocale();
   const { formatRelativeTime } = useFormatters();
@@ -35,9 +36,10 @@ export default function LiveIndicator({
   return (
     <div
       className={cn(
-        'inline-flex items-center gap-2 px-3 py-1.5 rounded-full',
+        'inline-flex items-center gap-2 px-3 py-1.5 rounded-full max-w-full flex-wrap',
         'bg-capture-surface/80 border border-slate-600/25',
         'text-xs font-medium',
+        className,
       )}
     >
       <span className="relative flex h-2 w-2">

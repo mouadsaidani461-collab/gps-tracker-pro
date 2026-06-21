@@ -467,7 +467,7 @@ export default function Settings() {
     <div dir={dir} className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-100">{t('settings.title')}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-100">{t('settings.title')}</h1>
         <p className="text-sm text-capture-metallic mt-1">{t('settings.subtitle')}</p>
         {fieldErrors.form && (
           <p className="mt-2 text-sm text-rose-400">{fieldErrors.form}</p>
@@ -476,27 +476,30 @@ export default function Settings() {
 
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Tab navigation */}
-        <nav className="lg:w-56 shrink-0 capture-card p-2 space-y-1 h-fit">
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => requestTab(id)}
-              aria-current={activeTab === id ? 'page' : undefined}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
-                activeTab === id
-                  ? 'bg-capture-primary/20 text-capture-glow border border-capture-primary/30 shadow-glow-sm'
-                  : 'text-capture-metallic hover:bg-capture-surface/60 hover:text-slate-200 border border-transparent',
-              )}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              {label}
-            </button>
-          ))}
+        <nav className="lg:w-56 shrink-0 capture-card p-2 h-fit">
+          <div className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible snap-x snap-mandatory lg:snap-none pb-1 lg:pb-0 -mx-1 px-1 lg:mx-0 lg:px-0">
+            {tabs.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => requestTab(id)}
+                aria-current={activeTab === id ? 'page' : undefined}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
+                  'shrink-0 snap-start min-w-[9.5rem] lg:min-w-0 lg:w-full',
+                  activeTab === id
+                    ? 'bg-capture-primary/20 text-capture-glow border border-capture-primary/30 shadow-glow-sm'
+                    : 'text-capture-metallic hover:bg-capture-surface/60 hover:text-slate-200 border border-transparent',
+                )}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                {label}
+              </button>
+            ))}
+          </div>
 
           {/* Connection status */}
-          <div className="mt-3 pt-3 border-t border-slate-600/20 px-3">
+          <div className="hidden lg:block mt-3 pt-3 border-t border-slate-600/20 px-3">
             <p className="text-[10px] text-slate-500 mb-1">{t('settings.connection.title')}</p>
             <div className="flex items-center gap-1.5">
               <span className={cn(

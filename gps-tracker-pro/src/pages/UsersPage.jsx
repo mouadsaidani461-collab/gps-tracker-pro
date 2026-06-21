@@ -200,7 +200,7 @@ export default function UsersPage() {
     <div dir={dir} className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">{t('users.pageTitle')}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-100">{t('users.pageTitle')}</h1>
           <p className="text-capture-metallic text-sm mt-1">{t('users.pageSubtitle')}</p>
         </div>
         <div className="flex gap-2">
@@ -260,7 +260,7 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className="capture-card overflow-hidden border border-slate-600/25">
+      <div className="hidden md:block capture-card overflow-hidden border border-slate-600/25">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -345,6 +345,53 @@ export default function UsersPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="capture-card p-8 text-center text-capture-metallic">{t('common.loading')}</div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="capture-card p-8 text-center text-slate-500">
+            {users.length === 0 ? t('users.noUsers') : t('users.searchEmpty')}
+          </div>
+        ) : (
+          filteredUsers.map((user) => (
+            <div key={user.id} className="capture-card p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 bg-capture-primary/15 rounded-full flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4 text-capture-glow" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-100 truncate">{user.name}</p>
+                    <p className="text-xs text-slate-400 truncate mt-0.5" dir="ltr">{user.email}</p>
+                  </div>
+                </div>
+                <Badge variant={user.status === 'active' ? 'online' : 'offline'} dot>
+                  {user.status === 'active' ? t('users.statusActive') : t('users.statusDisabled')}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                <Shield className="w-3.5 h-3.5 text-capture-metallic shrink-0" />
+                {user.role}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="secondary" size="sm" leftIcon={<Pencil className="w-4 h-4" />} onClick={() => openEdit(user)}>
+                  {t('common.edit')}
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  leftIcon={<Trash2 className="w-4 h-4" />}
+                  onClick={() => openDeleteConfirm(user)}
+                  disabled={String(user.id) === String(currentUser?.id)}
+                >
+                  {t('common.delete')}
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <Modal

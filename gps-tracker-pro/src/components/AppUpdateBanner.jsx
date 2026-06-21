@@ -43,7 +43,7 @@ export default function AppUpdateBanner() {
   return (
     <div
       className={cn(
-        'fixed bottom-4 inset-x-4 z-[2000] mx-auto max-w-lg',
+        'fixed inset-x-4 z-[2000] mx-auto max-w-lg capture-floating-above-nav',
         'flex items-start gap-3 px-4 py-3 rounded-xl',
         'bg-capture-card/95 backdrop-blur-md border border-capture-primary/40 shadow-glow-md',
       )}

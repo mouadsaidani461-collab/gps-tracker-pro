@@ -68,7 +68,9 @@ export default function MapPage() {
     toggleDeviceLink,
   } = useGeofences();
 
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => (typeof window !== 'undefined' ? window.innerWidth >= 1024 : false),
+  );
   const [sidebarTab, setSidebarTab] = useState('vehicles');
   const [flyTrigger, setFlyTrigger] = useState(0);
 
@@ -103,8 +105,8 @@ export default function MapPage() {
   };
 
   return (
-    <div dir={dir} className="relative -m-4 lg:-m-6 h-[calc(100vh-4rem)] flex flex-col">
-      <div className="absolute top-4 start-4 z-[1001] flex flex-wrap items-center gap-3 pointer-events-none">
+    <div dir={dir} className="relative -mx-3 -mt-3 mb-0 sm:-mx-4 sm:-mt-4 lg:-m-6 capture-map-shell flex flex-col">
+      <div className="absolute top-3 sm:top-4 start-3 sm:start-4 end-3 sm:end-4 z-[1001] flex flex-wrap items-center gap-2 sm:gap-3 pointer-events-none">
         <div className="pointer-events-auto flex items-center gap-2 px-3 py-2 rounded-lg bg-capture-card/90 backdrop-blur-md border border-slate-600/25 shadow-glow-sm">
           <MapIcon className="w-4 h-4 text-capture-glow" />
           <div>
@@ -112,7 +114,7 @@ export default function MapPage() {
             <p className="text-[10px] text-capture-metallic">{t('mapPage.subtitle')}</p>
           </div>
         </div>
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto max-w-full">
           <LiveIndicator
             isLive={isSimulating && isConnected}
             lastUpdate={lastUpdate ? new Date(lastUpdate).toISOString() : null}
