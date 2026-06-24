@@ -70,6 +70,17 @@ if [ "$LOGIN_HTTP" != "200" ]; then
   exit 1
 fi
 
+# Edge nginx requires CSRF double-submit for PUT/POST (see docker/nginx/csrf.conf).
+CSRF_TOKEN=$(openssl rand -hex 32)
+CSRF_BOOT_HTTP=$(curl -s -o /dev/null -w '%{http_code}' \
+  -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+  -X POST "${API_URL}/api/_csrf-bootstrap" \
+  -H "X-CSRF-Token: ${CSRF_TOKEN}")
+if [ "$CSRF_BOOT_HTTP" != "204" ]; then
+  echo "ERROR: CSRF bootstrap failed (HTTP ${CSRF_BOOT_HTTP})."
+  exit 1
+fi
+
 SERVER_JSON=$(curl -sf -b "$COOKIE_JAR" "${API_URL}/api/server")
 if [ -z "$SERVER_JSON" ]; then
   echo "ERROR: Could not read ${API_URL}/api/server"
@@ -85,6 +96,7 @@ PUT_HTTP=$(curl -s -o /tmp/traccar-server-put.json -w '%{http_code}' \
   -b "$COOKIE_JAR" \
   -X PUT "${API_URL}/api/server" \
   -H 'Content-Type: application/json' \
+  -H "X-CSRF-Token: ${CSRF_TOKEN}" \
   -d "$PATCH")
 
 if [ "$PUT_HTTP" != "200" ]; then
@@ -96,7 +108,8 @@ fi
 TOTP_HTTP=$(curl -s -o /tmp/traccar-totp-test.txt -w '%{http_code}' \
   -b "$COOKIE_JAR" \
   -X POST "${API_URL}/api/users/totp" \
-  -H 'Content-Type: application/json')
+  -H 'Content-Type: application/json' \
+  -H "X-CSRF-Token: ${CSRF_TOKEN}")
 
 if [ "$TOTP_HTTP" != "200" ]; then
   echo "ERROR: TOTP still disabled after server update (HTTP ${TOTP_HTTP}):"
