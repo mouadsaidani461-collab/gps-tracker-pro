@@ -2,22 +2,39 @@
 # Enable Traccar TOTP on the server record (attribute totpEnable=true).
 # Required for POST /api/users/totp — NOT configurable via traccar.xml on modern Traccar.
 #
-# Env: TRACCAR_URL, ADMIN_EMAIL, ADMIN_PASSWORD
-# Optional: TOTP_FORCE=true to set totpForce on new registrations
+# Loads ADMIN_EMAIL / ADMIN_PASSWORD from .env.production + secrets/admin_password
+# when run on the Hetzner host (same as deploy-production.sh).
+#
+# Optional env: TRACCAR_URL (default http://127.0.0.1 via edge nginx), TOTP_FORCE=true
 
 set -eu
 
-TRACCAR_URL="${TRACCAR_URL:-http://traccar:8082}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+if [ -f .env.production ]; then
+  # shellcheck disable=SC1091
+  set -a && . ./.env.production && set +a
+fi
+
+if [ -f secrets/admin_password ]; then
+  ADMIN_PASSWORD=$(tr -d '\n\r' < secrets/admin_password)
+  export ADMIN_PASSWORD
+fi
+
+TRACCAR_URL="${TRACCAR_URL:-http://127.0.0.1}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 TOTP_FORCE="${TOTP_FORCE:-false}"
 
 if [ -n "${ADMIN_PASSWORD_FILE:-}" ] && [ -f "$ADMIN_PASSWORD_FILE" ]; then
   ADMIN_PASSWORD=$(tr -d '\n\r' < "$ADMIN_PASSWORD_FILE")
+  export ADMIN_PASSWORD
 fi
 
 if [ -z "$ADMIN_EMAIL" ] || [ -z "$ADMIN_PASSWORD" ]; then
   echo "ERROR: ADMIN_EMAIL and ADMIN_PASSWORD are required."
+  echo "Set them in .env.production or secrets/admin_password on the server."
   exit 1
 fi
 
@@ -29,6 +46,7 @@ fi
 COOKIE_JAR=$(mktemp)
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
+echo "==> Logging in as ${ADMIN_EMAIL} (${TRACCAR_URL})..."
 LOGIN_HTTP=$(curl -s -o /dev/null -w '%{http_code}' \
   -c "$COOKIE_JAR" \
   -X POST "${TRACCAR_URL}/api/session" \
@@ -38,15 +56,17 @@ LOGIN_HTTP=$(curl -s -o /dev/null -w '%{http_code}' \
 
 if [ "$LOGIN_HTTP" != "200" ]; then
   echo "ERROR: Admin login failed (HTTP ${LOGIN_HTTP})."
+  echo "Check ADMIN_EMAIL / ADMIN_PASSWORD in .env.production or secrets/admin_password."
   exit 1
 fi
 
 SERVER_JSON=$(curl -sf -b "$COOKIE_JAR" "${TRACCAR_URL}/api/server")
 if [ -z "$SERVER_JSON" ]; then
-  echo "ERROR: Could not read /api/server"
+  echo "ERROR: Could not read ${TRACCAR_URL}/api/server"
   exit 1
 fi
 
+echo "==> Setting totpEnable=true on server..."
 PATCH=$(printf '%s' "$SERVER_JSON" | jq -c \
   --argjson force "$([ "$TOTP_FORCE" = "true" ] && echo true || echo false)" \
   '.attributes = (.attributes // {}) | .attributes.totpEnable = true | .attributes.totpForce = $force')
