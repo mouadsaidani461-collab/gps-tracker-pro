@@ -22,7 +22,17 @@ if [ -f secrets/admin_password ]; then
   export ADMIN_PASSWORD
 fi
 
-TRACCAR_URL="${TRACCAR_URL:-http://127.0.0.1}"
+# .env.production sets TRACCAR_URL=http://traccar:8082 for Docker Compose only.
+# From the Hetzner host shell, API calls must go through edge nginx on localhost.
+DOCKER_TRACCAR_URL="${TRACCAR_URL:-http://traccar:8082}"
+if [ -n "${PUBLIC_API_URL:-}" ]; then
+  API_URL="$PUBLIC_API_URL"
+elif printf '%s' "$DOCKER_TRACCAR_URL" | grep -qE '://traccar([:/]|$)'; then
+  API_URL="http://127.0.0.1"
+else
+  API_URL="$DOCKER_TRACCAR_URL"
+fi
+
 ADMIN_EMAIL="${ADMIN_EMAIL:-}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 TOTP_FORCE="${TOTP_FORCE:-false}"
@@ -46,10 +56,10 @@ fi
 COOKIE_JAR=$(mktemp)
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
-echo "==> Logging in as ${ADMIN_EMAIL} (${TRACCAR_URL})..."
+echo "==> Logging in as ${ADMIN_EMAIL} (${API_URL})..."
 LOGIN_HTTP=$(curl -s -o /dev/null -w '%{http_code}' \
   -c "$COOKIE_JAR" \
-  -X POST "${TRACCAR_URL}/api/session" \
+  -X POST "${API_URL}/api/session" \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode "email=${ADMIN_EMAIL}" \
   --data-urlencode "password=${ADMIN_PASSWORD}")
@@ -60,9 +70,9 @@ if [ "$LOGIN_HTTP" != "200" ]; then
   exit 1
 fi
 
-SERVER_JSON=$(curl -sf -b "$COOKIE_JAR" "${TRACCAR_URL}/api/server")
+SERVER_JSON=$(curl -sf -b "$COOKIE_JAR" "${API_URL}/api/server")
 if [ -z "$SERVER_JSON" ]; then
-  echo "ERROR: Could not read ${TRACCAR_URL}/api/server"
+  echo "ERROR: Could not read ${API_URL}/api/server"
   exit 1
 fi
 
@@ -73,7 +83,7 @@ PATCH=$(printf '%s' "$SERVER_JSON" | jq -c \
 
 PUT_HTTP=$(curl -s -o /tmp/traccar-server-put.json -w '%{http_code}' \
   -b "$COOKIE_JAR" \
-  -X PUT "${TRACCAR_URL}/api/server" \
+  -X PUT "${API_URL}/api/server" \
   -H 'Content-Type: application/json' \
   -d "$PATCH")
 
@@ -85,7 +95,7 @@ fi
 
 TOTP_HTTP=$(curl -s -o /tmp/traccar-totp-test.txt -w '%{http_code}' \
   -b "$COOKIE_JAR" \
-  -X POST "${TRACCAR_URL}/api/users/totp" \
+  -X POST "${API_URL}/api/users/totp" \
   -H 'Content-Type: application/json')
 
 if [ "$TOTP_HTTP" != "200" ]; then
