@@ -122,5 +122,15 @@ if [ "$DISABLE_REGISTRATION" = "true" ]; then
   fi
 fi
 
+ENABLE_TRACCAR_TOTP="${ENABLE_TRACCAR_TOTP:-true}"
+if [ "$ENABLE_TRACCAR_TOTP" = "true" ]; then
+  echo "==> Enabling Traccar TOTP (server attribute totpEnable)..."
+  ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+  TOTP_FORCE="${TOTP_FORCE:-false}" \
+    "$ROOT_DIR/scripts/enable-traccar-totp.sh" || {
+    echo "WARN: Could not enable TOTP — run manually: ./scripts/enable-traccar-totp.sh"
+  }
+fi
+
 echo "Bootstrap complete."
 exit 0

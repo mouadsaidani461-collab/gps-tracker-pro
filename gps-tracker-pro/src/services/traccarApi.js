@@ -20,6 +20,12 @@ export const sessionApi = {
   logout: () => fetchApi('/session', { method: 'DELETE' }),
 };
 
+/** Traccar server settings — TOTP flags live in server.attributes (not traccar.xml). */
+export const serverApi = {
+  get: () => fetchApi('/server'),
+  update: (payload) => fetchApi('/server', { method: 'PUT', body: payload }),
+};
+
 export const geofenceApi = {
   list: () => fetchApi('/geofences'),
   create: (payload) => fetchApi('/geofences', { method: 'POST', body: payload }),

@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react';
-import { ShieldCheck, Smartphone, Loader2, ShieldOff } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { ShieldCheck, Smartphone, Loader2, ShieldOff, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
-import { totpApi } from '../../services/traccarApi';
+import { totpApi, serverApi } from '../../services/traccarApi';
 import { buildTotpAuthUrl, verifyTotpCode, generateQrDataUrl } from '../../utils/totp';
 import { isTwoFactorLocked } from '../../utils/userAttributes';
+import { parseTotpServerEnabled } from '../../utils/serverAttributes';
 import { ROLES } from '../../utils/authRoles';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
@@ -21,9 +22,23 @@ export default function TotpEnrollmentPanel() {
   const [verifyCode, setVerifyCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [serverTotpEnabled, setServerTotpEnabled] = useState(null);
 
   const canEnroll = ENROLL_ROLES.has(user?.role);
   const locked = isTwoFactorLocked(user);
+  const isAdmin = user?.role === ROLES.ADMIN;
+
+  useEffect(() => {
+    let cancelled = false;
+    serverApi.get()
+      .then((server) => {
+        if (!cancelled) setServerTotpEnabled(parseTotpServerEnabled(server));
+      })
+      .catch(() => {
+        if (!cancelled) setServerTotpEnabled(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const startEnrollment = useCallback(async () => {
     setError('');
@@ -82,6 +97,36 @@ export default function TotpEnrollmentPanel() {
 
   if (!canEnroll) {
     return null;
+  }
+
+  if (serverTotpEnabled === null) {
+    return (
+      <div className="rounded-xl bg-capture-bg/40 border border-slate-600/20 p-4">
+        <p className="text-xs text-slate-500 flex items-center gap-2">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          {t('common.loading')}
+        </p>
+      </div>
+    );
+  }
+
+  if (!serverTotpEnabled) {
+    return (
+      <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-4 space-y-2">
+        <div className="flex items-start gap-3">
+          <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-slate-200">{t('settings.security.twoFA')}</p>
+            <p className="text-xs text-slate-400 mt-1">{t('settings.security.totpServerDisabled')}</p>
+            {isAdmin && (
+              <p className="text-xs text-amber-300/90 mt-2 font-mono" dir="ltr">
+                {t('settings.security.totpServerDisabledAdmin')}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (locked || step === 'enabled') {

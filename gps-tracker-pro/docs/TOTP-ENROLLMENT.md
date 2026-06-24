@@ -2,6 +2,25 @@
 
 Capture Tracking GPS uses **Traccar native TOTP** (`totpKey` on the user record). Secrets are stored server-side in the Traccar database — never in `localStorage`.
 
+## Prerequisite (server)
+
+Traccar requires **`totpEnable=true`** as a **server attribute** (`tc_servers.attributes`), not in `traccar.xml`.
+
+```bash
+# On Hetzner (after admin login works):
+cd /opt/gps-tracker-pro/gps-tracker-pro
+./scripts/enable-traccar-totp.sh
+```
+
+Bootstrap enables this automatically when `ENABLE_TRACCAR_TOTP=true` (default in `setup-traccar-admin.sh`).
+
+Verify:
+
+```bash
+curl -s http://127.0.0.1/api/server | jq '.attributes.totpEnable'
+# → true
+```
+
 ## Enrollment (Settings → Security)
 
 1. Open **Settings → Security**.
